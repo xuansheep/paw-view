@@ -1,0 +1,230 @@
+<template>
+  <view v-if="show" class="modal-root">
+    <!-- Overlay -->
+    <view class="modal-overlay" @click="closeModal"></view>
+
+    <!-- Voice Modal Content -->
+    <view class="voice-modal">
+      <view class="modal-header">
+        <text class="modal-title">语音输入</text>
+        <view class="close-btn" @click="closeModal">
+          <image class="icon-close" src="/static/close-icon.png" mode="aspectFit"></image>
+        </view>
+      </view>
+      
+      <view class="modal-body">
+        <text class="modal-label">手动输入 / 点击麦克风开始录音</text>
+        <view class="input-area">
+          <textarea 
+            ref="textarea"
+            class="input-field" 
+            v-model="taskText" 
+            :focus="inputFocus"
+            placeholder="例如：今天下午3点开会"
+            placeholder-style="color: #99A1AF; font-size: 28rpx;"
+          ></textarea>
+        </view>
+      </view>
+      
+      <view class="modal-footer">
+        <view class="keyboard-btn bg-orange" @click="focusInput">
+           <image class="icon-keyboard" src="/static/keyboard-icon.png" mode="aspectFit"></image>
+        </view>
+        <view class="create-btn bg-green" @click="createNewTask">
+           <image class="icon-mic" src="/static/mic-icon-white.png" mode="aspectFit"></image>
+           <text class="create-btn-text">创建任务</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script>
+export default {
+  props: {
+    show: {
+      type: Boolean,
+      default: false
+    }
+  },
+  data() {
+    return {
+      taskText: '',
+      inputFocus: false
+    };
+  },
+  watch: {
+    show(newVal) {
+      if (newVal) {
+        this.inputFocus = false;
+        setTimeout(() => {
+          this.inputFocus = true;
+        }, 500);
+      } else {
+        this.inputFocus = false;
+        uni.hideKeyboard();
+      }
+    }
+  },
+  methods: {
+    closeModal() {
+      this.$emit('close');
+    },
+    createNewTask() {
+      if (!this.taskText.trim()) return;
+      this.$emit('create-task', this.taskText);
+      this.taskText = '';
+      this.closeModal();
+    },
+    focusInput() {
+      this.inputFocus = false;
+      this.$nextTick(() => {
+        this.inputFocus = true;
+      });
+    }
+  }
+};
+</script>
+
+<style>
+.modal-root {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+}
+
+.modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+.voice-modal {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 706rpx;
+  background-color: #FFFFFF;
+  border-top-left-radius: 32rpx;
+  border-top-right-radius: 32rpx;
+  border-top-width: 2rpx;
+  border-top-color: #E5E7EB;
+}
+
+.modal-header {
+  height: 106rpx;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  padding-left: 24rpx;
+  padding-right: 24rpx;
+  border-bottom-width: 2rpx;
+  border-bottom-color: #F3F4F6;
+  background-color: #F9FAFB;
+  border-top-left-radius: 32rpx;
+  border-top-right-radius: 32rpx;
+}
+
+.modal-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #101828;
+}
+
+.close-btn {
+  width: 56rpx;
+  height: 56rpx;
+  justify-content: center;
+  align-items: center;
+}
+
+.icon-close {
+  width: 32rpx;
+  height: 32rpx;
+}
+
+.modal-body {
+  padding: 24rpx;
+  height: 444rpx;
+}
+
+.modal-label {
+  font-size: 24rpx;
+  color: #364153;
+  margin-bottom: 12rpx;
+  text-align: center;
+}
+
+.input-area {
+  background-color: #F8F9FA;
+  border-radius: 20rpx;
+  padding: 24rpx;
+  height: 352rpx;
+}
+
+.input-field {
+  flex: 1;
+  font-size: 28rpx;
+  color: #101828;
+}
+
+.input-placeholder {
+  font-size: 28rpx;
+  color: #99A1AF;
+}
+
+.modal-footer {
+  height: 154rpx;
+  background-color: #F9FAFB;
+  border-top-width: 2rpx;
+  border-top-color: #F3F4F6;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.bg-orange { background-color: #F1795C; }
+.bg-green { background-color: #6BCF7F; }
+
+.keyboard-btn {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 28rpx;
+  justify-content: center;
+  align-items: center;
+  margin-right: 20rpx;
+}
+
+.icon-keyboard {
+  width: 40rpx;
+  height: 40rpx;
+}
+
+.create-btn {
+  width: 222rpx;
+  height: 96rpx;
+  border-radius: 28rpx;
+  flex-direction: row;
+  align-items: center;
+  padding-left: 28rpx;
+}
+
+.icon-mic {
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: 16rpx;
+}
+
+.create-btn-text {
+  color: #FFFFFF;
+  font-size: 28rpx;
+}
+</style>

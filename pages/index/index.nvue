@@ -1,0 +1,307 @@
+<template>
+  <view class="container">
+    <view class="page-content">
+      <!-- Header -->
+      <view class="header-section">
+        <text class="header-title">今日待办</text>
+        <view class="date-row">
+          <image class="icon-small" src="/static/calendar-icon.png" mode="aspectFit"></image>
+          <text class="date-text">1月27日 星期二</text>
+        </view>
+      </view>
+
+      <!-- Pending Tasks -->
+      <view class="section-container">
+        <view class="section-header">
+          <view class="indicator-line bg-orange"></view>
+          <text class="section-title">待完成</text>
+          <view class="count-badge">
+            <text class="count-text">{{ pendingTasks.length }}</text>
+          </view>
+        </view>
+        
+        <view class="task-list">
+          <view class="task-item" v-for="task in pendingTasks" :key="task.id" @click="toggleTask(task.id)">
+            <view class="task-content">
+              <view class="checkbox border-gray"></view>
+              <view class="task-details">
+                <text class="task-name">{{ task.name }}</text>
+                <view class="task-meta">
+                  <image class="icon-tiny" src="/static/clock-icon.png" mode="aspectFit"></image>
+                  <text class="task-time">{{ task.time }}</text>
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- Completed Tasks -->
+      <view class="section-container">
+        <view class="section-header">
+          <view class="indicator-line bg-green"></view>
+          <text class="section-title">已完成</text>
+          <view class="count-badge">
+            <text class="count-text">{{ completedTasks.length }}</text>
+          </view>
+        </view>
+        
+        <view class="task-list">
+          <view class="task-item" v-for="task in completedTasks" :key="task.id" @click="toggleTask(task.id)">
+            <view class="task-content">
+              <view class="checkbox bg-orange border-orange">
+                 <image class="icon-check" src="/static/check-icon.png" mode="aspectFit"></image>
+              </view>
+              <view class="task-details">
+                <text class="task-name text-completed">{{ task.name }}</text>
+                <view class="task-meta">
+                  <image class="icon-tiny" src="/static/clock-icon.png" mode="aspectFit"></image>
+                  <text class="task-time">{{ task.time }}</text>
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- Navigation -->
+    <view class="nav-bar">
+      <view class="nav-item">
+        <image class="nav-icon" src="/static/nav-today-icon.png" mode="aspectFit"></image>
+        <text class="nav-text text-active">今日待办</text>
+      </view>
+      <view class="nav-item" @click="showVoiceModal = true" @longpress="onVoiceLongPress" @touchend="onVoiceTouchEnd">
+        <image class="nav-icon" src="/static/nav-voice-icon.png" mode="aspectFit"></image>
+        <text class="nav-text">语音对话</text>
+      </view>
+      <view class="nav-item" @click="goToPage('/pages/profile/profile')">
+        <image class="nav-icon" src="/static/nav-profile-icon.png" mode="aspectFit"></image>
+        <text class="nav-text">个人中心</text>
+      </view>
+    </view>
+
+    <!-- Voice Modal -->
+    <voice-modal :show="showVoiceModal" @close="showVoiceModal = false" @create-task="handleCreateTask"></voice-modal>
+
+    <!-- Listening Overlay -->
+    <view v-if="isListening" class="listening-overlay">
+      <view class="listening-content">
+        <view class="listening-icon-container">
+           <image class="listening-icon" src="/static/mic-icon-white.png" mode="aspectFit"></image>
+           <view class="ripple-ring"></view>
+        </view>
+        <text class="listening-text">正在听...</text>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script>
+import VoiceModal from '@/components/VoiceModal.nvue';
+
+export default {
+  components: {
+    VoiceModal
+  },
+  data() {
+    return {
+      showVoiceModal: false,
+      isListening: false,
+      tasks: [
+        { id: 1, name: '完成项目报告', time: '10:00', completed: false },
+        { id: 2, name: '团队会议讨论', time: '14:30', completed: false },
+        { id: 3, name: '回复客户邮件', time: '16:00', completed: false },
+        { id: 4, name: '晨跑30分钟', time: '07:00', completed: true },
+        { id: 5, name: '阅读技术文章', time: '21:00', completed: true }
+      ]
+    };
+  },
+  computed: {
+    pendingTasks() {
+      return this.tasks.filter(task => !task.completed);
+    },
+    completedTasks() {
+      return this.tasks.filter(task => task.completed);
+    }
+  },
+  methods: {
+    goToPage(url) {
+      uni.redirectTo({
+        url: url
+      });
+    },
+    toggleTask(taskId) {
+      const task = this.tasks.find(t => t.id === taskId);
+      if (task) {
+        task.completed = !task.completed;
+      }
+    },
+    handleCreateTask(taskName) {
+      const now = new Date();
+      const timeString = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+      
+      const newTask = {
+        id: Date.now(),
+        name: taskName,
+        time: timeString,
+        completed: false
+      };
+      
+      this.tasks.unshift(newTask);
+    },
+    onVoiceLongPress() {
+      // Short vibration
+      uni.vibrateShort();
+      this.isListening = true;
+      
+      // Start Speech Recognition
+      // #ifdef APP-PLUS
+      plus.speech.startRecognize({
+        engine: 'iFly',
+        lang: 'zh-cn'
+      }, (s) => {
+        this.handleCreateTask(s);
+        this.isListening = false;
+      }, (e) => {
+        console.log('语音识别失败：' + e.message);
+        this.isListening = false;
+      });
+      // #endif
+      
+      // #ifndef APP-PLUS
+      console.log('Not in App environment, mocking voice input.');
+      // Mocking for H5/Dev
+      this.mockTimer = setTimeout(() => {
+        if (this.isListening) {
+           this.handleCreateTask("模拟语音任务 " + Math.floor(Math.random() * 100));
+        }
+      }, 2000);
+      // #endif
+    },
+    onVoiceTouchEnd() {
+      if (this.isListening) {
+        this.isListening = false;
+        // #ifdef APP-PLUS
+        plus.speech.stopRecognize();
+        // #endif
+        
+        // #ifndef APP-PLUS
+        if (this.mockTimer) clearTimeout(this.mockTimer);
+        // #endif
+      }
+    }
+  }
+};
+</script>
+
+<style>
+.container {
+  flex: 1;
+  background-color: #FAFAFA;
+  flex-direction: column;
+}
+
+.page-content {
+  flex: 1;
+  padding-left: 32rpx;
+  padding-right: 32rpx;
+  padding-top: 48rpx;
+}
+
+.header-section { margin-bottom: 48rpx; }
+.header-title { font-size: 48rpx; font-weight: bold; color: #101828; margin-bottom: 12rpx; }
+.date-row { flex-direction: row; align-items: center; }
+.icon-small { width: 28rpx; height: 28rpx; margin-right: 16rpx; }
+.date-text { font-size: 24rpx; color: #6A7282; }
+
+.section-container { margin-bottom: 48rpx; }
+.section-header { flex-direction: row; align-items: center; margin-bottom: 20rpx; height: 40rpx; }
+.indicator-line { width: 8rpx; height: 32rpx; border-radius: 4rpx; margin-right: 16rpx; }
+.bg-orange { background-color: #F1795C; }
+.bg-green { background-color: #6BCF7F; }
+.section-title { font-size: 28rpx; font-weight: bold; color: #101828; margin-right: 24rpx; }
+.count-badge { background-color: #F3F4F6; border-radius: 8rpx; padding-left: 16rpx; padding-right: 16rpx; height: 40rpx; justify-content: center; }
+.count-text { font-size: 24rpx; color: #364153; }
+
+.task-list { flex-direction: column; }
+.task-item { background-color: #FFFFFF; border-radius: 20rpx; padding: 24rpx; margin-bottom: 12rpx; height: 124rpx; justify-content: center; }
+.task-content { flex-direction: row; align-items: flex-start; }
+.checkbox { width: 32rpx; height: 32rpx; border-radius: 12rpx; margin-top: 4rpx; margin-right: 20rpx; justify-content: center; align-items: center; }
+.border-gray { border-width: 4rpx; border-color: #D1D5DC; }
+.border-orange { border-width: 4rpx; border-color: #F1795C; }
+.icon-check { width: 20rpx; height: 16rpx; }
+.task-details { flex: 1; }
+.task-name { font-size: 28rpx; color: #101828; margin-bottom: 4rpx; }
+.text-completed { color: #99A1AF; text-decoration: line-through; }
+.task-meta { flex-direction: row; align-items: center; }
+.icon-tiny { width: 24rpx; height: 24px; margin-right: 8rpx; }
+.task-time { font-size: 24rpx; color: #6A7282; }
+
+.nav-bar {
+  height: 154rpx;
+  background-color: #FFFFFF;
+  border-top-width: 2rpx;
+  border-top-color: #F3F4F6;
+  flex-direction: row;
+  justify-content: space-between;
+  padding-left: 40rpx;
+  padding-right: 40rpx;
+  padding-top: 20rpx;
+}
+.nav-item { align-items: center; width: 144rpx; }
+.nav-icon { width: 48rpx; height: 48rpx; margin-bottom: 8rpx; }
+.nav-text { font-size: 24rpx; color: #6A7282; }
+.text-active { color: #F1795C; }
+
+.listening-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+}
+
+.listening-content {
+  align-items: center;
+  justify-content: center;
+}
+
+.listening-icon-container {
+  width: 160rpx;
+  height: 160rpx;
+  background-color: #F1795C;
+  border-radius: 80rpx;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 40rpx;
+  position: relative;
+}
+
+.ripple-ring {
+  position: absolute;
+  top: -20rpx;
+  left: -20rpx;
+  right: -20rpx;
+  bottom: -20rpx;
+  border-width: 8rpx;
+  border-color: rgba(241, 121, 92, 0.4);
+  border-radius: 100rpx;
+  border-style: solid;
+}
+
+.listening-icon {
+  width: 64rpx;
+  height: 64rpx;
+}
+
+.listening-text {
+  color: #FFFFFF;
+  font-size: 32rpx;
+  font-weight: bold;
+}
+</style>
