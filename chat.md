@@ -140,3 +140,62 @@ stop
 
 ## User
 将历史的所有对话输出到项目根目录的chat.md文件中
+
+## Model
+*(Summary of previous work provided)*
+
+## User
+将底部导航栏的三个图标分别换成static目录下的 nav-today-icon.svg、nav-voice-icon.svg、nav-profile-icon.svg
+
+## Model
+*(Updated `pages/index/index.nvue` and `pages/profile/profile.nvue` to use SVG icons)*
+
+已将底部导航栏图标更新为 SVG 格式。
+
+## User
+我在app的导航栏里无法看到图标
+
+## Model
+*(Reverted navigation icons to PNG format in `pages/index/index.nvue` and `pages/profile/profile.nvue` due to nvue compatibility issues with SVG)*
+
+已将图标改回 PNG 格式以解决显示问题。
+
+## User
+png无法满足我变更颜色的要求，我在项目的static/fonts目录加入了图标字体文件，请使用字体替换导航栏的png图标，并增加激活后的颜色样式，三个导航栏的图标名称分别为： nav-today-icon、nav-voice-icon、nav-profile-icon
+
+## Model
+*(Loaded `iconfont.ttf` using `dom.addRule` and replaced images with font icons in `pages/index/index.nvue` and `pages/profile/profile.nvue`)*
+
+已实现字体图标替换，并支持激活状态颜色切换。
+
+## User
+将导航栏做成公共组件
+
+## Model
+*(Created `components/TabBar.nvue` and refactored `pages/index/index.nvue` and `pages/profile/profile.nvue`)*
+
+已将底部导航栏重构为独立公共组件 `TabBar.nvue`。
+
+## User
+纠正三个图标的string值，分别为：&#xe60a; &#xe609; &#xe60b;
+
+## Model
+*(Updated `components/TabBar.nvue` with the correct Unicode values)*
+
+已修正图标编码。
+
+## User
+将个人中心页中的“使用日历”左边图标换位字体图标，string值为&#xe608;，颜色为主色，同时减少个人信息卡片、统计卡片、日历卡片三者之间的上下间距
+
+## Model
+*(Updated `pages/profile/profile.nvue` to use font icon for calendar and adjusted card spacing)*
+
+已更新日历图标并优化了卡片间距。
+
+## User
+将个人中心的头像改为圆形并移除头像的背景色
+
+## Model
+*(Updated `pages/profile/profile.nvue` styles for circular avatar)*
+
+已将头像改为圆形。

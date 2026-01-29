@@ -1,0 +1,72 @@
+<template>
+  <view class="nav-bar">
+    <view class="nav-item" @click="navigateTo('/pages/index/index')">
+      <text :class="['nav-icon', 'iconfont', currentPage === 'index' ? 'text-active' : '']">&#xe60a;</text>
+      <text :class="['nav-text', currentPage === 'index' ? 'text-active' : '']">今日待办</text>
+    </view>
+    <view class="nav-item" @click="$emit('voice-click')" @longpress="$emit('voice-longpress')" @touchend="$emit('voice-touchend')">
+      <text class="nav-icon iconfont">&#xe609;</text>
+      <text class="nav-text">语音对话</text>
+    </view>
+    <view class="nav-item" @click="navigateTo('/pages/profile/profile')">
+      <text :class="['nav-icon', 'iconfont', currentPage === 'profile' ? 'text-active' : '']">&#xe60b;</text>
+      <text :class="['nav-text', currentPage === 'profile' ? 'text-active' : '']">个人中心</text>
+    </view>
+  </view>
+</template>
+
+<script>
+// #ifdef APP-NVUE
+const dom = uni.requireNativePlugin('dom');
+// #endif
+
+export default {
+  props: {
+    currentPage: {
+      type: String,
+      default: 'index'
+    }
+  },
+  beforeCreate() {
+    // #ifdef APP-NVUE
+    dom.addRule('fontFace', {
+        'fontFamily': 'iconfont',
+        'src': "url('/static/fonts/iconfont.ttf')"
+    });
+    // #endif
+  },
+  methods: {
+    navigateTo(url) {
+      // Determine page name from url to check against currentPage
+      const targetPage = url.includes('index') ? 'index' : 'profile';
+      if (this.currentPage === targetPage) return;
+      
+      uni.redirectTo({
+        url: url
+      });
+    }
+  }
+}
+</script>
+
+<style>
+.iconfont {
+    font-family: iconfont;
+}
+
+.nav-bar {
+  height: 154rpx;
+  background-color: #FFFFFF;
+  border-top-width: 2rpx;
+  border-top-color: #F3F4F6;
+  flex-direction: row;
+  justify-content: space-between;
+  padding-left: 40rpx;
+  padding-right: 40rpx;
+  padding-top: 20rpx;
+}
+.nav-item { align-items: center; width: 144rpx; }
+.nav-icon { font-size: 48rpx; color: #6A7282; margin-bottom: 8rpx; }
+.nav-text { font-size: 24rpx; color: #6A7282; }
+.text-active { color: #F1795C; }
+</style>

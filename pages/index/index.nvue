@@ -66,20 +66,12 @@
     </view>
 
     <!-- Navigation -->
-    <view class="nav-bar">
-      <view class="nav-item">
-        <image class="nav-icon" src="/static/nav-today-icon.png" mode="aspectFit"></image>
-        <text class="nav-text text-active">今日待办</text>
-      </view>
-      <view class="nav-item" @click="showVoiceModal = true" @longpress="onVoiceLongPress" @touchend="onVoiceTouchEnd">
-        <image class="nav-icon" src="/static/nav-voice-icon.png" mode="aspectFit"></image>
-        <text class="nav-text">语音对话</text>
-      </view>
-      <view class="nav-item" @click="goToPage('/pages/profile/profile')">
-        <image class="nav-icon" src="/static/nav-profile-icon.png" mode="aspectFit"></image>
-        <text class="nav-text">个人中心</text>
-      </view>
-    </view>
+    <tab-bar 
+      current-page="index"
+      @voice-click="showVoiceModal = true"
+      @voice-longpress="onVoiceLongPress"
+      @voice-touchend="onVoiceTouchEnd"
+    ></tab-bar>
 
     <!-- Voice Modal -->
     <voice-modal :show="showVoiceModal" @close="showVoiceModal = false" @create-task="handleCreateTask"></voice-modal>
@@ -99,10 +91,12 @@
 
 <script>
 import VoiceModal from '@/components/VoiceModal.nvue';
+import TabBar from '@/components/TabBar.nvue';
 
 export default {
   components: {
-    VoiceModal
+    VoiceModal,
+    TabBar
   },
   data() {
     return {
@@ -126,11 +120,6 @@ export default {
     }
   },
   methods: {
-    goToPage(url) {
-      uni.redirectTo({
-        url: url
-      });
-    },
     toggleTask(taskId) {
       const task = this.tasks.find(t => t.id === taskId);
       if (task) {
@@ -237,22 +226,6 @@ export default {
 .task-meta { flex-direction: row; align-items: center; }
 .icon-tiny { width: 24rpx; height: 24px; margin-right: 8rpx; }
 .task-time { font-size: 24rpx; color: #6A7282; }
-
-.nav-bar {
-  height: 154rpx;
-  background-color: #FFFFFF;
-  border-top-width: 2rpx;
-  border-top-color: #F3F4F6;
-  flex-direction: row;
-  justify-content: space-between;
-  padding-left: 40rpx;
-  padding-right: 40rpx;
-  padding-top: 20rpx;
-}
-.nav-item { align-items: center; width: 144rpx; }
-.nav-icon { width: 48rpx; height: 48rpx; margin-bottom: 8rpx; }
-.nav-text { font-size: 24rpx; color: #6A7282; }
-.text-active { color: #F1795C; }
 
 .listening-overlay {
   position: fixed;
