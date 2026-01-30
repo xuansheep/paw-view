@@ -94,10 +94,26 @@
     </view>
 
     <!-- Navigation -->
-    <tab-bar current-page="profile" @voice-click="showVoiceModal = true"></tab-bar>
+    <tab-bar 
+      current-page="profile" 
+      @voice-click="showVoiceModal = true"
+      @voice-longpress="onVoiceLongPress"
+      @voice-touchend="onVoiceTouchEnd"
+    ></tab-bar>
 
     <!-- Voice Modal -->
-    <voice-modal :show="showVoiceModal" @close="showVoiceModal = false"></voice-modal>
+    <voice-modal :show="showVoiceModal" @close="showVoiceModal = false" @create-task="handleCreateTask"></voice-modal>
+
+    <!-- Listening Overlay -->
+    <view v-if="isListening" class="listening-overlay">
+      <view class="listening-content">
+        <view class="listening-icon-container">
+           <image class="listening-icon" src="/static/mic-icon-white.png" mode="aspectFit"></image>
+           <view class="ripple-ring"></view>
+        </view>
+        <text class="listening-text">正在听...</text>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -116,7 +132,8 @@ export default {
   },
   data() {
     return {
-      showVoiceModal: false
+      showVoiceModal: false,
+      isListening: false
     };
   },
   beforeCreate() {
@@ -126,6 +143,71 @@ export default {
         'src': "url('/static/fonts/iconfont.ttf')"
     });
     // #endif
+  },
+  methods: {
+    handleCreateTask(taskName) {
+      const now = new Date();
+      const timeString = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+      
+      const newTask = {
+        id: Date.now(),
+        name: taskName,
+        time: timeString,
+        completed: false
+      };
+      
+      // Send task to index page
+      uni.$emit('add-task', newTask);
+      
+      // Close modal if open
+      this.showVoiceModal = false;
+
+      // Navigate to index to show the new task
+      uni.redirectTo({
+          url: '/pages/index/index'
+      });
+    },
+    onVoiceLongPress() {
+      // Short vibration
+      uni.vibrateShort();
+      this.isListening = true;
+      
+      // Start Speech Recognition
+      // #ifdef APP-PLUS
+      plus.speech.startRecognize({
+        engine: 'iFly',
+        lang: 'zh-cn'
+      }, (s) => {
+        this.handleCreateTask(s);
+        this.isListening = false;
+      }, (e) => {
+        console.log('语音识别失败：' + e.message);
+        this.isListening = false;
+      });
+      // #endif
+      
+      // #ifndef APP-PLUS
+      console.log('Not in App environment, mocking voice input.');
+      // Mocking for H5/Dev
+      this.mockTimer = setTimeout(() => {
+        if (this.isListening) {
+           this.handleCreateTask("模拟语音任务 " + Math.floor(Math.random() * 100));
+        }
+      }, 2000);
+      // #endif
+    },
+    onVoiceTouchEnd() {
+      if (this.isListening) {
+        this.isListening = false;
+        // #ifdef APP-PLUS
+        plus.speech.stopRecognize();
+        // #endif
+        
+        // #ifndef APP-PLUS
+        if (this.mockTimer) clearTimeout(this.mockTimer);
+        // #endif
+      }
+    }
   }
 };
 </script>
@@ -135,8 +217,59 @@ export default {
     font-family: iconfont;
 }
 
+.listening-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+}
+
+.listening-content {
+  align-items: center;
+  justify-content: center;
+}
+
+.listening-icon-container {
+  width: 160rpx;
+  height: 160rpx;
+  background-color: #F1795C;
+  border-radius: 80rpx;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 40rpx;
+  position: relative;
+}
+
+.ripple-ring {
+  position: absolute;
+  top: -20rpx;
+  left: -20rpx;
+  right: -20rpx;
+  bottom: -20rpx;
+  border-width: 8rpx;
+  border-color: rgba(241, 121, 92, 0.4);
+  border-radius: 100rpx;
+  border-style: solid;
+}
+
+.listening-icon {
+  width: 64rpx;
+  height: 64rpx;
+}
+
+.listening-text {
+  color: #FFFFFF;
+  font-size: 32rpx;
+  font-weight: bold;
+}
+
 .container { flex: 1; background-color: #FAFAFA; flex-direction: column; }
-.page-content { flex: 1; padding-left: 32rpx; padding-right: 32rpx; padding-top: 40rpx; }
+.page-content { flex: 1; padding-left: 32rpx; padding-right: 32rpx; padding-top: 40rpx; padding-bottom: 200rpx; }
 .profile-header { margin-bottom: 24rpx; }
 .page-title { font-size: 48rpx; font-weight: bold; color: #101828; margin-bottom: 24rpx; }
 .user-card { height: 144rpx; background-color: #FFFFFF; border-radius: 32rpx; padding: 24rpx; flex-direction: row; align-items: center; }

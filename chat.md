@@ -199,3 +199,108 @@ png无法满足我变更颜色的要求，我在项目的static/fonts目录加�
 *(Updated `pages/profile/profile.nvue` styles for circular avatar)*
 
 已将头像改为圆形。
+
+## User
+修改“语言对话”导航栏按钮：改为圆形，大小增加25%，圆形按钮背景为主色，圆形按钮网上偏移25%，突出导航栏区域，同时保持导航栏高度不变，圆形按钮与导航栏连接的部分使用渐变色，使其看起来更自然
+
+## Model
+*(Updated `components/TabBar.nvue`)*
+
+已完成“语音对话”导航栏按钮的样式重构：
+1.  **圆形凸起**：将中间按钮改为 `120rpx` 圆形，上移 `60rpx`。
+2.  **样式优化**：应用了主色调渐变和阴影，图标改为白色并放大。
+3.  **布局调整**：设置导航栏 `overflow: visible` 确保按钮不被遮挡。
+
+## User
+按钮超出导航栏高度的部分被截断了
+
+## Model
+*(Updated `components/TabBar.nvue`, `pages/index/index.nvue`, and `pages/profile/profile.nvue`)*
+
+已修复截断问题：
+1.  **重构 TabBar**：使用 `fixed` 定位，将容器高度增加至 `250rpx`，保留顶部透明区域供按钮显示，同时底部背景保持 `154rpx`。
+2.  **调整页面边距**：在首页和个人中心增加 `padding-bottom: 200rpx`，防止内容被遮挡。
+
+## User
+依然是被截断的，超出导航栏高度的部分无法看见
+
+## Model
+*(Updated `components/TabBar.nvue`)*
+
+彻底修复截断问题：
+1.  **高度同步**：将 `.nav-bar` 内容容器高度设为 `250rpx`，与外层一致。
+2.  **底部对齐**：使用 `align-items: flex-end` 确保导航项沉底。
+3.  **悬浮调整**：通过 `margin-bottom` 将中间按钮抬起，形成自然的凸起效果。
+
+## User
+很棒！现在正常展示完整按钮了，现在将“语言对话”按钮改小一点，缩小10%，按钮在导航栏上只需要超出本身25%即可，同时给按钮增加一点透明的边框使其避免和页面内容粘连
+
+## Model
+*(Updated `components/TabBar.nvue`)*
+
+微调了按钮样式：
+1.  **缩小尺寸**：按钮缩小至 `108rpx`。
+2.  **调整位置**：调整 `margin-bottom` 确保按钮顶部超出导航栏背景 25%。
+3.  **增加边框**：添加了半透明白色边框。
+
+## User
+撤销这次更改
+
+## Model
+*(Reverted `components/TabBar.nvue`)*
+
+已撤销更改，恢复按钮至 `120rpx` 大小，无边框，底部偏移 `40rpx`。
+
+## User
+移除“语音对话”按钮的渐变效果
+
+## Model
+*(Updated `components/TabBar.nvue`)*
+
+已将按钮背景改为纯色主色 (`#F1795C`)。
+
+## User
+给“语音对话”按钮加上白色边框，并且将按钮向下移动10%
+
+## Model
+*(Updated `components/TabBar.nvue`)*
+
+已添加白色边框并将按钮下移 `12rpx`（10% 高度）。
+
+## User
+移除“语音对话”按钮的边缘渐变效果
+
+## Model
+*(Updated `components/TabBar.nvue`)*
+
+已移除按钮的 `box-shadow`。
+
+## User
+再将“语音对话”按钮向下移动10%
+
+## Model
+*(Updated `components/TabBar.nvue`)*
+
+已再次将按钮下移 `12rpx`（累计下移 20%）。
+
+## User
+我在个人中心页无法通过长按“语音对话”按钮唤醒语音输入，请修复
+
+## Model
+*(Updated `pages/index/index.nvue` and `pages/profile/profile.nvue`)*
+
+已修复个人中心语音输入问题：
+1.  **同步逻辑**：在个人中心页实现了完整的语音输入逻辑（状态、动画、震动）。
+2.  **跨页通信**：首页添加 `uni.$on('add-task')` 监听，个人中心语音输入完成后通过 `uni.$emit` 发送任务数据。
+3.  **自动跳转**：个人中心创建任务后自动跳转回首页。
+
+## User
+完成任务只能通过数据前的选框出发，每条任务数据都支持左滑删除操作（左滑后在右侧展示红色的删除按钮，点击后删除该任务）
+
+## Model
+*(Updated `pages/index/index.nvue`)*
+
+已升级任务列表交互：
+1.  **左滑删除**：重构任务项，支持手势左滑（最大 `140rpx`）露出删除按钮。
+2.  **触发变更**：点击任务项不再切换状态，必须点击左侧选框触发。
+3.  **交互优化**：状态切换时自动重置滑动状态，左滑新项时自动关闭旧项。

@@ -21,16 +21,25 @@
         </view>
         
         <view class="task-list">
-          <view class="task-item" v-for="task in pendingTasks" :key="task.id" @click="toggleTask(task.id)">
-            <view class="task-content">
-              <view class="checkbox border-gray"></view>
-              <view class="task-details">
-                <text class="task-name">{{ task.name }}</text>
-                <view class="task-meta">
-                  <image class="icon-tiny" src="/static/clock-icon.png" mode="aspectFit"></image>
-                  <text class="task-time">{{ task.time }}</text>
+          <view class="task-item" v-for="(task, index) in pendingTasks" :key="task.id">
+            <view class="delete-btn" @click="deleteTask(task.id)">
+                <text class="delete-text">删除</text>
+            </view>
+            <view class="task-content-wrapper" 
+                  @touchstart="touchStart($event, task)" 
+                  @touchmove="touchMove($event, task)" 
+                  @touchend="touchEnd($event, task)"
+                  :style="{ transform: 'translateX(' + task.offsetX + 'rpx)' }">
+                <view class="task-content">
+                  <view class="checkbox border-gray" @click.stop="toggleTask(task.id)"></view>
+                  <view class="task-details">
+                    <text class="task-name">{{ task.name }}</text>
+                    <view class="task-meta">
+                      <image class="icon-tiny" src="/static/clock-icon.png" mode="aspectFit"></image>
+                      <text class="task-time">{{ task.time }}</text>
+                    </view>
+                  </view>
                 </view>
-              </view>
             </view>
           </view>
         </view>
@@ -47,18 +56,27 @@
         </view>
         
         <view class="task-list">
-          <view class="task-item" v-for="task in completedTasks" :key="task.id" @click="toggleTask(task.id)">
-            <view class="task-content">
-              <view class="checkbox bg-orange border-orange">
-                 <image class="icon-check" src="/static/check-icon.png" mode="aspectFit"></image>
-              </view>
-              <view class="task-details">
-                <text class="task-name text-completed">{{ task.name }}</text>
-                <view class="task-meta">
-                  <image class="icon-tiny" src="/static/clock-icon.png" mode="aspectFit"></image>
-                  <text class="task-time">{{ task.time }}</text>
+          <view class="task-item" v-for="(task, index) in completedTasks" :key="task.id">
+            <view class="delete-btn" @click="deleteTask(task.id)">
+                <text class="delete-text">删除</text>
+            </view>
+            <view class="task-content-wrapper" 
+                  @touchstart="touchStart($event, task)" 
+                  @touchmove="touchMove($event, task)" 
+                  @touchend="touchEnd($event, task)"
+                  :style="{ transform: 'translateX(' + task.offsetX + 'rpx)' }">
+                <view class="task-content">
+                  <view class="checkbox bg-orange border-orange" @click.stop="toggleTask(task.id)">
+                     <image class="icon-check" src="/static/check-icon.png" mode="aspectFit"></image>
+                  </view>
+                  <view class="task-details">
+                    <text class="task-name text-completed">{{ task.name }}</text>
+                    <view class="task-meta">
+                      <image class="icon-tiny" src="/static/clock-icon.png" mode="aspectFit"></image>
+                      <text class="task-time">{{ task.time }}</text>
+                    </view>
+                  </view>
                 </view>
-              </view>
             </view>
           </view>
         </view>
@@ -102,12 +120,13 @@ export default {
     return {
       showVoiceModal: false,
       isListening: false,
+      startX: 0,
       tasks: [
-        { id: 1, name: '完成项目报告', time: '10:00', completed: false },
-        { id: 2, name: '团队会议讨论', time: '14:30', completed: false },
-        { id: 3, name: '回复客户邮件', time: '16:00', completed: false },
-        { id: 4, name: '晨跑30分钟', time: '07:00', completed: true },
-        { id: 5, name: '阅读技术文章', time: '21:00', completed: true }
+        { id: 1, name: '完成项目报告', time: '10:00', completed: false, offsetX: 0 },
+        { id: 2, name: '团队会议讨论', time: '14:30', completed: false, offsetX: 0 },
+        { id: 3, name: '回复客户邮件', time: '16:00', completed: false, offsetX: 0 },
+        { id: 4, name: '晨跑30分钟', time: '07:00', completed: true, offsetX: 0 },
+        { id: 5, name: '阅读技术文章', time: '21:00', completed: true, offsetX: 0 }
       ]
     };
   },
@@ -124,7 +143,14 @@ export default {
       const task = this.tasks.find(t => t.id === taskId);
       if (task) {
         task.completed = !task.completed;
+        task.offsetX = 0; // Reset swipe on toggle
       }
+    },
+    deleteTask(taskId) {
+        const index = this.tasks.findIndex(t => t.id === taskId);
+        if (index > -1) {
+            this.tasks.splice(index, 1);
+        }
     },
     handleCreateTask(taskName) {
       const now = new Date();
@@ -134,10 +160,55 @@ export default {
         id: Date.now(),
         name: taskName,
         time: timeString,
-        completed: false
+        completed: false,
+        offsetX: 0
       };
       
       this.tasks.unshift(newTask);
+    },
+    touchStart(e, task) {
+        // Stop other opened swipes
+        this.tasks.forEach(t => {
+            if (t.id !== task.id) t.offsetX = 0;
+        });
+        
+        if (e.touches.length === 1) {
+            this.startX = e.touches[0].pageX;
+        }
+    },
+    touchMove(e, task) {
+        if (e.touches.length === 1) {
+            const moveX = e.touches[0].pageX;
+            const deltaX = moveX - this.startX;
+            // Convert px to rpx roughly for logic (assuming 1px = 2rpx usually, but logic needs consistency)
+            // Here we use raw px delta but limit by rpx value conversion factor if needed.
+            // Simplified: Just use raw values for logic and assume rpx mapping.
+            // Since transform is in rpx, we need to convert delta (px) to rpx.
+            const deltaRpx = deltaX * 2; // Approximation: 750rpx screen width
+            
+            let newOffsetX = deltaRpx;
+            
+            if (newOffsetX < -140) newOffsetX = -140; // Max delete width
+            if (newOffsetX > 0) newOffsetX = 0; 
+            
+            // Allow dragging back
+            if (task.offsetX < 0) {
+                 newOffsetX = task.offsetX + deltaRpx;
+            }
+             
+             // Simple clamp
+            if (newOffsetX < -140) newOffsetX = -140;
+            if (newOffsetX > 0) newOffsetX = 0;
+
+            task.offsetX = newOffsetX;
+        }
+    },
+    touchEnd(e, task) {
+        if (task.offsetX < -70) {
+            task.offsetX = -140; // Open
+        } else {
+            task.offsetX = 0; // Close
+        }
     },
     onVoiceLongPress() {
       // Short vibration
@@ -180,6 +251,16 @@ export default {
         // #endif
       }
     }
+  },
+  onLoad() {
+    uni.$on('add-task', (task) => {
+        // Ensure new tasks have offsetX
+        task.offsetX = 0;
+        this.tasks.unshift(task);
+    });
+  },
+  onUnload() {
+    uni.$off('add-task');
   }
 };
 </script>
@@ -196,6 +277,7 @@ export default {
   padding-left: 32rpx;
   padding-right: 32rpx;
   padding-top: 48rpx;
+  padding-bottom: 200rpx; /* Added padding for fixed tab bar */
 }
 
 .header-section { margin-bottom: 48rpx; }
@@ -214,8 +296,46 @@ export default {
 .count-text { font-size: 24rpx; color: #364153; }
 
 .task-list { flex-direction: column; }
-.task-item { background-color: #FFFFFF; border-radius: 20rpx; padding: 24rpx; margin-bottom: 12rpx; height: 124rpx; justify-content: center; }
-.task-content { flex-direction: row; align-items: flex-start; }
+.task-item { 
+    background-color: #FFFFFF; 
+    border-radius: 20rpx; 
+    margin-bottom: 12rpx; 
+    height: 124rpx; 
+    position: relative;
+    overflow: hidden; /* Hide delete button initially */
+}
+.task-content-wrapper {
+    flex-direction: row;
+    height: 124rpx;
+    background-color: #FFFFFF;
+    border-radius: 20rpx;
+    width: 686rpx; /* width of page-content minus padding, but container is flex? */
+    /* Actually page padding is 32rpx each side. 750 - 64 = 686. */
+}
+.task-content { 
+    flex-direction: row; 
+    align-items: flex-start; 
+    padding: 24rpx;
+    flex: 1;
+}
+.delete-btn {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 140rpx;
+    background-color: #FF4D4F;
+    justify-content: center;
+    align-items: center;
+    border-top-right-radius: 20rpx;
+    border-bottom-right-radius: 20rpx;
+}
+.delete-text {
+    color: #FFFFFF;
+    font-size: 28rpx;
+    font-weight: bold;
+}
+
 .checkbox { width: 32rpx; height: 32rpx; border-radius: 12rpx; margin-top: 4rpx; margin-right: 20rpx; justify-content: center; align-items: center; }
 .border-gray { border-width: 4rpx; border-color: #D1D5DC; }
 .border-orange { border-width: 4rpx; border-color: #F1795C; }

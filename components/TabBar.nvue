@@ -1,16 +1,21 @@
 <template>
-  <view class="nav-bar">
-    <view class="nav-item" @click="navigateTo('/pages/index/index')">
-      <text :class="['nav-icon', 'iconfont', currentPage === 'index' ? 'text-active' : '']">&#xe60a;</text>
-      <text :class="['nav-text', currentPage === 'index' ? 'text-active' : '']">今日待办</text>
-    </view>
-    <view class="nav-item" @click="$emit('voice-click')" @longpress="$emit('voice-longpress')" @touchend="$emit('voice-touchend')">
-      <text class="nav-icon iconfont">&#xe609;</text>
-      <text class="nav-text">语音对话</text>
-    </view>
-    <view class="nav-item" @click="navigateTo('/pages/profile/profile')">
-      <text :class="['nav-icon', 'iconfont', currentPage === 'profile' ? 'text-active' : '']">&#xe60b;</text>
-      <text :class="['nav-text', currentPage === 'profile' ? 'text-active' : '']">个人中心</text>
+  <view class="tab-bar-wrapper">
+    <view class="tab-bar-bg"></view>
+    <view class="nav-bar">
+      <view class="nav-item" @click="navigateTo('/pages/index/index')">
+        <text :class="['nav-icon', 'iconfont', currentPage === 'index' ? 'text-active' : '']">&#xe60a;</text>
+        <text :class="['nav-text', currentPage === 'index' ? 'text-active' : '']">今日待办</text>
+      </view>
+      <view class="nav-item-voice-container">
+          <view class="nav-item-voice" @click="$emit('voice-click')" @longpress="$emit('voice-longpress')" @touchend="$emit('voice-touchend')">
+              <text class="nav-icon-voice iconfont">&#xe609;</text>
+          </view>
+          <text class="nav-text-voice">语音对话</text>
+      </view>
+      <view class="nav-item" @click="navigateTo('/pages/profile/profile')">
+        <text :class="['nav-icon', 'iconfont', currentPage === 'profile' ? 'text-active' : '']">&#xe60b;</text>
+        <text :class="['nav-text', currentPage === 'profile' ? 'text-active' : '']">个人中心</text>
+      </view>
     </view>
   </view>
 </template>
@@ -54,19 +59,73 @@ export default {
     font-family: iconfont;
 }
 
+.tab-bar-wrapper {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 750rpx;
+    height: 250rpx; /* Taller to allow button protrusion */
+    justify-content: flex-end; /* Align content to bottom */
+}
+
+.tab-bar-bg {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 750rpx;
+    height: 154rpx;
+    background-color: #FFFFFF;
+    border-top-width: 2rpx;
+    border-top-color: #F3F4F6;
+}
+
 .nav-bar {
-  height: 154rpx;
-  background-color: #FFFFFF;
-  border-top-width: 2rpx;
-  border-top-color: #F3F4F6;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 750rpx;
+  height: 250rpx; /* Full height to avoid clipping */
   flex-direction: row;
   justify-content: space-between;
+  align-items: flex-end; /* Align items to the bottom */
   padding-left: 40rpx;
   padding-right: 40rpx;
-  padding-top: 20rpx;
 }
-.nav-item { align-items: center; width: 144rpx; }
+.nav-item { 
+    align-items: center; 
+    width: 144rpx; 
+    height: 154rpx; /* Match background height */
+    justify-content: center;
+    padding-top: 10rpx;
+}
 .nav-icon { font-size: 48rpx; color: #6A7282; margin-bottom: 8rpx; }
 .nav-text { font-size: 24rpx; color: #6A7282; }
 .text-active { color: #F1795C; }
+
+/* Voice Button Styles */
+.nav-item-voice-container {
+    align-items: center;
+    width: 144rpx;
+    height: 250rpx; /* Full height */
+    justify-content: flex-end; /* Align button to bottom */
+    padding-bottom: 20rpx;
+}
+.nav-item-voice {
+    width: 120rpx;
+    height: 120rpx;
+    border-radius: 60rpx;
+    background-color: #F1795C;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 16rpx; /* Moved down by another 12rpx (10% of height) */
+    border-width: 6rpx;
+    border-color: #FFFFFF;
+}
+.nav-icon-voice {
+    font-size: 56rpx; /* Increased size */
+    color: #FFFFFF;
+}
+.nav-text-voice {
+    display: none; /* Hide text for cleaner look */
+}
 </style>
