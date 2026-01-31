@@ -9,7 +9,8 @@
         "nvueCompiler" : "uni-app",
         "compilerVersion" : 3,
         "modules" : {
-            "SQLite" : {}
+            "SQLite" : {},
+            "Speech" : {}
         },
         "distribute" : {
             "android" : {
@@ -34,7 +35,9 @@
             "ios" : {
                 "dSYMs" : false
             },
-            "sdkConfigs" : {},
+            "sdkConfigs" : {
+                "speech" : {}
+            },
             "icons" : {
                 "android" : {
                     "hdpi" : "unpackage/res/icons/72x72.png",
