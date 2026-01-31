@@ -1,97 +1,100 @@
 <template>
   <view class="container">
-    <view class="page-content">
-      <!-- Profile Header -->
-      <view class="profile-header">
-        <text class="page-title">个人中心</text>
-        <view class="user-card">
-          <view class="avatar-container">
-             <image class="avatar" src="/static/avatar.png" mode="aspectFill"></image>
-          </view>
-          <view class="user-info">
-            <text class="user-name">张小明</text>
-            <text class="user-days">已使用 127 天</text>
+    <scroll-view scroll-y="true" class="scroll-container">
+      <view class="page-content">
+        <!-- Profile Header -->
+        <view class="profile-header">
+          <text class="page-title">个人中心</text>
+          <view class="user-card">
+            <view class="avatar-container">
+               <image class="avatar" src="/static/avatar.png" mode="aspectFill"></image>
+            </view>
+            <view class="user-info">
+              <text class="user-name">张小明</text>
+              <text class="user-days">{{ stats.daysUsed || '已使用 1 天' }}</text>
+            </view>
           </view>
         </view>
-      </view>
 
-      <!-- Stats Grid -->
-      <view class="stats-section">
-        <view class="stats-row">
-          <view class="stats-card">
-            <view class="stats-header">
-              <view class="icon-box bg-blue">
-                 <image class="icon-stat" src="/static/profile-tasks.png" mode="aspectFit"></image>
+        <!-- Stats Grid -->
+        <view class="stats-section">
+          <view class="stats-row">
+            <view class="stats-card">
+              <view class="stats-header">
+                <view class="icon-box bg-blue">
+                   <image class="icon-stat" src="/static/profile-tasks.png" mode="aspectFit"></image>
+                </view>
+                <text class="stats-label">总任务</text>
               </view>
-              <text class="stats-label">总任务</text>
+              <text class="stats-value">{{ stats.total || 0 }}</text>
             </view>
-            <text class="stats-value">342</text>
+            <view class="stats-card">
+              <view class="stats-header">
+                <view class="icon-box bg-green">
+                   <image class="icon-stat" src="/static/profile-rate.png" mode="aspectFit"></image>
+                </view>
+                <text class="stats-label">完成率</text>
+              </view>
+              <text class="stats-value">{{ stats.rate || '0%' }}</text>
+            </view>
           </view>
-          <view class="stats-card">
-            <view class="stats-header">
-              <view class="icon-box bg-green">
-                 <image class="icon-stat" src="/static/profile-rate.png" mode="aspectFit"></image>
+          <view class="stats-row">
+            <view class="stats-card">
+              <view class="stats-header">
+                <view class="icon-box bg-yellow">
+                   <image class="icon-stat" src="/static/profile-weekly.png" mode="aspectFit"></image>
+                </view>
+                <text class="stats-label">本周完成</text>
               </view>
-              <text class="stats-label">完成率</text>
+              <text class="stats-value">{{ stats.weekly || 0 }}</text>
             </view>
-            <text class="stats-value">87%</text>
+            <view class="stats-card">
+              <view class="stats-header">
+                <view class="icon-box bg-orange">
+                   <image class="icon-stat" src="/static/profile-streak.png" mode="aspectFit"></image>
+                </view>
+                <text class="stats-label">连续打卡</text>
+              </view>
+              <text class="stats-value">{{ stats.streak || '0天' }}</text>
+            </view>
           </view>
         </view>
-        <view class="stats-row">
-          <view class="stats-card">
-            <view class="stats-header">
-              <view class="icon-box bg-yellow">
-                 <image class="icon-stat" src="/static/profile-weekly.png" mode="aspectFit"></image>
-              </view>
-              <text class="stats-label">本周完成</text>
-            </view>
-            <text class="stats-value">23</text>
-          </view>
-          <view class="stats-card">
-            <view class="stats-header">
-              <view class="icon-box bg-orange">
-                 <image class="icon-stat" src="/static/profile-streak.png" mode="aspectFit"></image>
-              </view>
-              <text class="stats-label">连续打卡</text>
-            </view>
-            <text class="stats-value">12天</text>
-          </view>
-        </view>
-      </view>
 
-      <!-- Calendar Section -->
-      <view class="calendar-section">
-        <view class="calendar-header">
-           <text class="icon-calendar iconfont">&#xe608;</text>
-           <text class="calendar-title">使用日历</text>
-        </view>
-        <text class="calendar-month">2026年1月</text>
-        <view class="week-days">
-          <text class="day-label">日</text><text class="day-label">一</text><text class="day-label">二</text><text class="day-label">三</text><text class="day-label">四</text><text class="day-label">五</text><text class="day-label">六</text>
-        </view>
-        <view class="calendar-grid">
-          <view class="grid-row">
-            <view class="day-cell"></view><view class="day-cell"></view><view class="day-cell"></view><view class="day-cell"></view><view class="day-cell"><text class="day-text text-gray">1</text></view><view class="day-cell bg-orange-light"><text class="day-text text-dark">2</text></view><view class="day-cell"><text class="day-text text-gray">3</text></view>
+        <!-- Calendar Section -->
+        <view class="calendar-section">
+          <view class="calendar-header">
+             <text class="icon-calendar iconfont">&#xe608;</text>
+             <text class="calendar-title">使用日历</text>
           </view>
-          <view class="grid-row">
-            <view class="day-cell"><text class="day-text text-gray">4</text></view><view class="day-cell bg-orange-light"><text class="day-text text-dark">5</text></view><view class="day-cell"><text class="day-text text-gray">6</text></view><view class="day-cell bg-orange-light"><text class="day-text text-dark">7</text></view><view class="day-cell"><text class="day-text text-gray">8</text></view><view class="day-cell bg-orange-light"><text class="day-text text-dark">9</text></view><view class="day-cell"><text class="day-text text-gray">10</text></view>
+          <text class="calendar-month">{{ currentMonthStr }}</text>
+          <view class="week-days">
+            <text class="day-label">日</text><text class="day-label">一</text><text class="day-label">二</text><text class="day-label">三</text><text class="day-label">四</text><text class="day-label">五</text><text class="day-label">六</text>
           </view>
-          <view class="grid-row">
-            <view class="day-cell"><text class="day-text text-gray">11</text></view><view class="day-cell bg-orange-light"><text class="day-text text-dark">12</text></view><view class="day-cell"><text class="day-text text-gray">13</text></view><view class="day-cell bg-orange-light"><text class="day-text text-dark">14</text></view><view class="day-cell bg-orange-light"><text class="day-text text-dark">15</text></view><view class="day-cell"><text class="day-text text-gray">16</text></view><view class="day-cell"><text class="day-text text-gray">17</text></view>
+          <view class="calendar-grid">
+            <view class="grid-row" v-for="(row, rowIndex) in calendarRows" :key="rowIndex">
+              <view 
+                  class="day-cell" 
+                  v-for="(day, colIndex) in row" 
+                  :key="colIndex"
+                  :class="[day.isToday ? 'bg-orange-solid' : (day.hasRecord ? 'bg-orange-light' : '')]"
+              >
+                  <text 
+                      class="day-text" 
+                      :class="[day.isToday ? 'text-white' : (day.hasRecord ? 'text-dark' : 'text-gray')]"
+                      v-if="!day.empty"
+                  >{{ day.day }}</text>
+              </view>
+            </view>
           </view>
-          <view class="grid-row">
-            <view class="day-cell bg-orange-light"><text class="day-text text-dark">18</text></view><view class="day-cell"><text class="day-text text-gray">19</text></view><view class="day-cell bg-orange-light"><text class="day-text text-dark">20</text></view><view class="day-cell bg-orange-light"><text class="day-text text-dark">21</text></view><view class="day-cell"><text class="day-text text-gray">22</text></view><view class="day-cell bg-orange-light"><text class="day-text text-dark">23</text></view><view class="day-cell"><text class="day-text text-gray">24</text></view>
+          <view class="calendar-legend">
+             <view class="legend-item"><view class="legend-dot bg-orange-light"></view><text class="legend-text">有记录</text></view>
+             <view class="legend-item"><view class="legend-dot bg-orange"></view><text class="legend-text">今天</text></view>
           </view>
-          <view class="grid-row">
-            <view class="day-cell"><text class="day-text text-dark">25</text></view><view class="day-cell"><text class="day-text text-gray">26</text></view><view class="day-cell"><text class="day-text text-dark">27</text></view><view class="day-cell bg-orange-solid"><text class="day-text text-white">28</text></view><view class="day-cell"><text class="day-text text-gray">29</text></view><view class="day-cell"><text class="day-text text-gray">30</text></view><view class="day-cell"><text class="day-text text-gray">31</text></view>
-          </view>
-        </view>
-        <view class="calendar-legend">
-           <view class="legend-item"><view class="legend-dot bg-orange-light"></view><text class="legend-text">有记录</text></view>
-           <view class="legend-item"><view class="legend-dot bg-orange"></view><text class="legend-text">今天</text></view>
         </view>
       </view>
-    </view>
+    </scroll-view>
+
+    <!-- Navigation -->
 
     <!-- Navigation -->
     <tab-bar 
@@ -120,6 +123,7 @@
 <script>
 import VoiceModal from '@/components/VoiceModal.nvue';
 import TabBar from '@/components/TabBar.nvue';
+import db from '@/utils/db.js';
 
 // #ifdef APP-NVUE
 const dom = uni.requireNativePlugin('dom');
@@ -133,7 +137,10 @@ export default {
   data() {
     return {
       showVoiceModal: false,
-      isListening: false
+      isListening: false,
+      stats: {},
+      calendarRows: [],
+      currentMonthStr: ''
     };
   },
   beforeCreate() {
@@ -144,25 +151,67 @@ export default {
     });
     // #endif
   },
+  onShow() {
+      this.loadStats();
+  },
   methods: {
-    handleCreateTask(taskName) {
-      const now = new Date();
-      const timeString = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    async loadStats() {
+        const statsData = await db.getProfileStats();
+        this.stats = statsData;
+        this.generateCalendar(statsData.activityDates || []);
+    },
+    generateCalendar(activityDates) {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth();
+        
+        this.currentMonthStr = `${year}年${month + 1}月`;
+        
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        
+        const days = [];
+        
+        // Pad start
+        for(let i=0; i<firstDay; i++) {
+            days.push({ empty: true });
+        }
+        
+        // Days
+        for(let i=1; i<=daysInMonth; i++) {
+            const dateStr = `${year}-${(month+1).toString().padStart(2,'0')}-${i.toString().padStart(2,'0')}`;
+            const hasRecord = activityDates.includes(dateStr);
+            const isToday = (i === now.getDate());
+            
+            days.push({
+                day: i,
+                hasRecord,
+                isToday,
+                empty: false
+            });
+        }
+        
+        // Pad end
+        while(days.length % 7 !== 0) {
+            days.push({ empty: true });
+        }
+        
+        // Chunk rows
+        const rows = [];
+        for(let i=0; i<days.length; i+=7) {
+            rows.push(days.slice(i, i+7));
+        }
+        this.calendarRows = rows;
+    },
+    async handleCreateTask(taskName) {
+      if (!taskName) return;
       
-      const newTask = {
-        id: Date.now(),
-        name: taskName,
-        time: timeString,
-        completed: false
-      };
+      // Save to DB
+      await db.addTask(taskName);
       
-      // Send task to index page
-      uni.$emit('add-task', newTask);
-      
-      // Close modal if open
       this.showVoiceModal = false;
 
-      // Navigate to index to show the new task
+      // Navigate to index (will reload tasks)
       uni.redirectTo({
           url: '/pages/index/index'
       });
@@ -269,7 +318,8 @@ export default {
 }
 
 .container { flex: 1; background-color: #FAFAFA; flex-direction: column; }
-.page-content { flex: 1; padding-left: 32rpx; padding-right: 32rpx; padding-top: 40rpx; padding-bottom: 200rpx; }
+.scroll-container { flex: 1; }
+.page-content { padding-left: 32rpx; padding-right: 32rpx; padding-top: 40rpx; padding-bottom: 200rpx; }
 .profile-header { margin-bottom: 24rpx; }
 .page-title { font-size: 48rpx; font-weight: bold; color: #101828; margin-bottom: 24rpx; }
 .user-card { height: 144rpx; background-color: #FFFFFF; border-radius: 32rpx; padding: 24rpx; flex-direction: row; align-items: center; }

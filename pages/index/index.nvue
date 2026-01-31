@@ -1,90 +1,86 @@
 <template>
   <view class="container">
-    <view class="page-content">
-      <!-- Header -->
-      <view class="header-section">
-        <text class="header-title">今日待办</text>
-        <view class="date-row">
-          <image class="icon-small" src="/static/calendar-icon.png" mode="aspectFit"></image>
-          <text class="date-text">1月27日 星期二</text>
-        </view>
-      </view>
-
-      <!-- Pending Tasks -->
-      <view class="section-container">
-        <view class="section-header">
-          <view class="indicator-line bg-orange"></view>
-          <text class="section-title">待完成</text>
-          <view class="count-badge">
-            <text class="count-text">{{ pendingTasks.length }}</text>
+    <scroll-view scroll-y="true" class="scroll-container">
+      <view class="page-content">
+        <!-- Header -->
+        <view class="header-section">
+          <text class="header-title">今日待办</text>
+          <view class="date-row">
+            <image class="icon-small" src="/static/calendar-icon.png" mode="aspectFit"></image>
+            <text class="date-text">{{ todayDateStr }}</text>
           </view>
         </view>
-        
-        <view class="task-list">
-          <view class="task-item" v-for="(task, index) in pendingTasks" :key="task.id">
-            <view class="delete-btn" @click="deleteTask(task.id)">
-                <text class="delete-text">删除</text>
+
+        <!-- Pending Tasks -->
+        <view class="section-container">
+          <view class="section-header">
+            <view class="indicator-line bg-orange"></view>
+            <text class="section-title">待完成</text>
+            <view class="count-badge">
+              <text class="count-text">{{ pendingTasks.length }}</text>
             </view>
-            <view class="task-content-wrapper" 
-                  @touchstart="touchStart($event, task)" 
-                  @touchmove="touchMove($event, task)" 
-                  @touchend="touchEnd($event, task)"
-                  :style="{ transform: 'translateX(' + task.offsetX + 'rpx)' }">
-                <view class="task-content">
-                  <view class="checkbox border-gray" @click.stop="toggleTask(task.id)"></view>
-                  <view class="task-details">
-                    <text class="task-name">{{ task.name }}</text>
-                    <view class="task-meta">
-                      <image class="icon-tiny" src="/static/clock-icon.png" mode="aspectFit"></image>
-                      <text class="task-time">{{ task.time }}</text>
+          </view>
+
+          <view class="task-list">
+            <view class="task-item" :class="[task.animationClass || '']" v-for="(task, index) in pendingTasks" :key="task.id" @touchstart="onTaskTouchStart">
+                <view class="task-content-wrapper" 
+                      :class="[(!task.isDragging ? 'task-content-animating' : ''), (task.pinned ? 'bg-pinned' : '')]"
+                      @longpress="showTaskMenu($event, task)"
+                      :style="{ transform: 'translateX(' + (task.offsetX || 0) + 'rpx)' }">
+                    <view class="task-content">
+                        <view class="checkbox-click-area" @click.stop="toggleTask(task.id)"></view>
+                        <view class="checkbox checkbox-pending"></view>
+                        <view class="task-details">
+                            <text class="task-name">{{ task.name }}</text>
+                            <view class="task-meta">
+                                <image class="icon-tiny" src="/static/clock-icon.png" mode="aspectFit"></image>
+                                <text class="task-time">{{ task.time }}</text>
+                            </view>
+                        </view>
                     </view>
-                  </view>
+                </view>
+            </view>
+          </view>
+        </view>
+
+        <!-- Completed Tasks -->
+        <view class="section-container">
+          <view class="section-header">
+            <view class="indicator-line bg-green"></view>
+            <text class="section-title">已完成</text>
+            <view class="count-badge">
+              <text class="count-text">{{ completedTasks.length }}</text>
+            </view>
+          </view>
+
+          <view class="task-list">
+            <view class="task-item" :class="[task.animationClass || '']" v-for="(task, index) in completedTasks" :key="task.id" @touchstart="onTaskTouchStart">
+                <view class="task-content-wrapper"
+                      :class="[(task.pinned ? 'bg-pinned' : '')]"
+                      @longpress="showTaskMenu($event, task)"
+                      :style="{ transform: 'translateX(' + (task.offsetX || 0) + 'rpx)' }">
+                    <view class="task-content">
+                        <view class="checkbox-click-area" @click.stop="toggleTask(task.id)"></view>
+                        <view class="checkbox checkbox-completed">
+                            <image class="icon-check" src="/static/check-icon.png" mode="aspectFit"></image>
+                        </view>
+                        <view class="task-details">
+                            <text class="task-name text-completed">{{ task.name }}</text>
+                            <view class="task-meta">
+                                <image class="icon-tiny" src="/static/clock-icon.png" mode="aspectFit"></image>
+                                <text class="task-time">{{ task.time }}</text>
+                            </view>
+                        </view>
+                    </view>
                 </view>
             </view>
           </view>
         </view>
       </view>
-
-      <!-- Completed Tasks -->
-      <view class="section-container">
-        <view class="section-header">
-          <view class="indicator-line bg-green"></view>
-          <text class="section-title">已完成</text>
-          <view class="count-badge">
-            <text class="count-text">{{ completedTasks.length }}</text>
-          </view>
-        </view>
-        
-        <view class="task-list">
-          <view class="task-item" v-for="(task, index) in completedTasks" :key="task.id">
-            <view class="delete-btn" @click="deleteTask(task.id)">
-                <text class="delete-text">删除</text>
-            </view>
-            <view class="task-content-wrapper" 
-                  @touchstart="touchStart($event, task)" 
-                  @touchmove="touchMove($event, task)" 
-                  @touchend="touchEnd($event, task)"
-                  :style="{ transform: 'translateX(' + task.offsetX + 'rpx)' }">
-                <view class="task-content">
-                  <view class="checkbox bg-orange border-orange" @click.stop="toggleTask(task.id)">
-                     <image class="icon-check" src="/static/check-icon.png" mode="aspectFit"></image>
-                  </view>
-                  <view class="task-details">
-                    <text class="task-name text-completed">{{ task.name }}</text>
-                    <view class="task-meta">
-                      <image class="icon-tiny" src="/static/clock-icon.png" mode="aspectFit"></image>
-                      <text class="task-time">{{ task.time }}</text>
-                    </view>
-                  </view>
-                </view>
-            </view>
-          </view>
-        </view>
-      </view>
-    </view>
+    </scroll-view>
 
     <!-- Navigation -->
-    <tab-bar 
+    <tab-bar
       current-page="index"
       @voice-click="showVoiceModal = true"
       @voice-longpress="onVoiceLongPress"
@@ -104,12 +100,29 @@
         <text class="listening-text">正在听...</text>
       </view>
     </view>
+
+    <!-- Tooltip -->
+    <view v-if="tooltip.visible" class="tooltip-mask" @click="hideTooltip"></view>
+    <view v-if="tooltip.visible" class="tooltip-box" :style="{ top: tooltip.top + 'px', left: tooltip.left + 'px' }">
+        <view class="tooltip-item" @click="togglePin">
+            <text class="tooltip-text">{{ tooltip.isPinned ? '取消置顶' : '置顶' }}</text>
+        </view>
+        <view class="tooltip-separator"></view>
+        <view class="tooltip-item" @click="deleteTask()">
+            <text class="tooltip-text text-red">删除</text>
+        </view>
+    </view>
   </view>
 </template>
 
 <script>
 import VoiceModal from '@/components/VoiceModal.nvue';
 import TabBar from '@/components/TabBar.nvue';
+import db from '@/utils/db.js';
+
+// #ifdef APP-NVUE
+const dom = uni.requireNativePlugin('dom');
+// #endif
 
 export default {
   components: {
@@ -120,102 +133,166 @@ export default {
     return {
       showVoiceModal: false,
       isListening: false,
-      startX: 0,
-      tasks: [
-        { id: 1, name: '完成项目报告', time: '10:00', completed: false, offsetX: 0 },
-        { id: 2, name: '团队会议讨论', time: '14:30', completed: false, offsetX: 0 },
-        { id: 3, name: '回复客户邮件', time: '16:00', completed: false, offsetX: 0 },
-        { id: 4, name: '晨跑30分钟', time: '07:00', completed: true, offsetX: 0 },
-        { id: 5, name: '阅读技术文章', time: '21:00', completed: true, offsetX: 0 }
-      ]
+      tasks: [],
+      pendingTasks: [],
+      completedTasks: [],
+      pixelRatio: 2,
+      windowWidth: 0,
+      windowHeight: 0,
+      ignoreClick: false, // Flag to prevent click after longpress
+
+      // Captured Coords for Tooltip
+      lastTouchX: 0,
+      lastTouchY: 0,
+
+      // Tooltip State
+      tooltip: {
+        visible: false,
+        top: 0,
+        left: 0,
+        taskId: null,
+        isPinned: false
+      }
     };
   },
   computed: {
-    pendingTasks() {
-      return this.tasks.filter(task => !task.completed);
-    },
-    completedTasks() {
-      return this.tasks.filter(task => task.completed);
+    todayDateStr() {
+      const now = new Date();
+      const month = now.getMonth() + 1;
+      const day = now.getDate();
+      const weekDays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+      const weekDay = weekDays[now.getDay()];
+      return `${month}月${day}日 ${weekDay}`;
     }
   },
   methods: {
-    toggleTask(taskId) {
+    async loadTasks() {
+        const dbTasks = await db.getTasksByDate();
+        this.tasks = dbTasks.map(t => ({
+            ...t,
+            animationClass: '',
+            _isAnimating: false
+        }));
+        this.pendingTasks = this.tasks.filter(task => !task.completed);
+        this.completedTasks = this.tasks.filter(task => task.completed);
+    },
+    async toggleTask(taskId) {
+      if (this.ignoreClick) return; // Ignore if longpress just happened
+
       const task = this.tasks.find(t => t.id === taskId);
       if (task) {
-        task.completed = !task.completed;
-        task.offsetX = 0; // Reset swipe on toggle
+        if (task._isAnimating) return;
+        task._isAnimating = true;
+
+        // 1. Animate Out
+        task.animationClass = 'task-item-hidden';
+
+        setTimeout(async () => {
+            const oldStatus = task.completed;
+            task.completed = !task.completed;
+
+            // Refresh lists immediately
+            this.pendingTasks = this.tasks.filter(t => !t.completed);
+            this.completedTasks = this.tasks.filter(t => t.completed);
+
+            // 2. Animate In (in new list)
+            this.$nextTick(() => {
+                setTimeout(() => {
+                   task.animationClass = ''; // Reset to normal (expand)
+
+                   setTimeout(() => {
+                       task._isAnimating = false;
+                   }, 300);
+                }, 50);
+            });
+
+            await db.toggleTaskStatus(taskId, oldStatus);
+        }, 300);
       }
     },
-    deleteTask(taskId) {
-        const index = this.tasks.findIndex(t => t.id === taskId);
+    async deleteTask(taskId) {
+        const id = taskId || this.tooltip.taskId;
+        if (!id) return;
+
+        const index = this.tasks.findIndex(t => t.id === id);
         if (index > -1) {
             this.tasks.splice(index, 1);
+            await db.deleteTask(id);
         }
+        this.hideTooltip();
+        this.loadTasks(); 
     },
-    handleCreateTask(taskName) {
-      const now = new Date();
-      const timeString = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-      
-      const newTask = {
-        id: Date.now(),
-        name: taskName,
-        time: timeString,
-        completed: false,
-        offsetX: 0
-      };
-      
-      this.tasks.unshift(newTask);
-    },
-    touchStart(e, task) {
-        // Stop other opened swipes
-        this.tasks.forEach(t => {
-            if (t.id !== task.id) t.offsetX = 0;
-        });
-        
-        if (e.touches.length === 1) {
-            this.startX = e.touches[0].pageX;
-        }
-    },
-    touchMove(e, task) {
-        if (e.touches.length === 1) {
-            const moveX = e.touches[0].pageX;
-            const deltaX = moveX - this.startX;
-            // Convert px to rpx roughly for logic (assuming 1px = 2rpx usually, but logic needs consistency)
-            // Here we use raw px delta but limit by rpx value conversion factor if needed.
-            // Simplified: Just use raw values for logic and assume rpx mapping.
-            // Since transform is in rpx, we need to convert delta (px) to rpx.
-            const deltaRpx = deltaX * 2; // Approximation: 750rpx screen width
-            
-            let newOffsetX = deltaRpx;
-            
-            if (newOffsetX < -140) newOffsetX = -140; // Max delete width
-            if (newOffsetX > 0) newOffsetX = 0; 
-            
-            // Allow dragging back
-            if (task.offsetX < 0) {
-                 newOffsetX = task.offsetX + deltaRpx;
-            }
-             
-             // Simple clamp
-            if (newOffsetX < -140) newOffsetX = -140;
-            if (newOffsetX > 0) newOffsetX = 0;
+    async togglePin() {
+        if (!this.tooltip.taskId) return;
 
-            task.offsetX = newOffsetX;
+        const task = this.tasks.find(t => t.id === this.tooltip.taskId);
+        if (task) {
+            await db.toggleTaskPin(task.id, task.pinned);
+            this.loadTasks();
+        }
+        this.hideTooltip();
+    },
+    async handleCreateTask(taskName) {
+      if (!taskName) return;
+      await db.addTask(taskName);
+      this.loadTasks();
+    },
+
+    // Tooltip Logic
+    onTaskTouchStart(e) {
+        if (e.changedTouches && e.changedTouches.length > 0) {
+            const touch = e.changedTouches[0];
+            this.lastTouchX = touch.clientX || touch.screenX || touch.pageX;
+            this.lastTouchY = touch.clientY || touch.screenY || touch.pageY;
         }
     },
-    touchEnd(e, task) {
-        if (task.offsetX < -70) {
-            task.offsetX = -140; // Open
-        } else {
-            task.offsetX = 0; // Close
+    showTaskMenu(e, task) {
+        let x = this.lastTouchX;
+        let y = this.lastTouchY;
+
+        if (!x || !y) {
+             if (e.changedTouches && e.changedTouches.length > 0) {
+                const touch = e.changedTouches[0];
+                x = touch.clientX || touch.screenX || touch.pageX;
+                y = touch.clientY || touch.screenY || touch.pageY;
+             }
         }
+
+        if (!x || !y) {
+            x = this.windowWidth / 2;
+            y = this.windowHeight / 2;
+        }
+
+        const tooltipWidth = 240 / this.pixelRatio;
+
+        let targetLeft = x - tooltipWidth - 20;
+        let targetTop = y - (140 / this.pixelRatio);
+
+        if (targetLeft < 10) targetLeft = 10;
+        if (targetTop < 10) targetTop = 10;
+        if (targetTop > this.windowHeight - 100) targetTop = this.windowHeight - 100;
+
+        this.tooltip = {
+            visible: true,
+            top: targetTop,
+            left: targetLeft,
+            taskId: task.id,
+            isPinned: task.pinned
+        };
+
+        this.ignoreClick = true;
+        setTimeout(() => {
+            this.ignoreClick = false;
+        }, 500);
     },
+    hideTooltip() {
+        this.tooltip.visible = false;
+    },
+
     onVoiceLongPress() {
-      // Short vibration
       uni.vibrateShort();
       this.isListening = true;
-      
-      // Start Speech Recognition
+
       // #ifdef APP-PLUS
       plus.speech.startRecognize({
         engine: 'iFly',
@@ -228,10 +305,8 @@ export default {
         this.isListening = false;
       });
       // #endif
-      
+
       // #ifndef APP-PLUS
-      console.log('Not in App environment, mocking voice input.');
-      // Mocking for H5/Dev
       this.mockTimer = setTimeout(() => {
         if (this.isListening) {
            this.handleCreateTask("模拟语音任务 " + Math.floor(Math.random() * 100));
@@ -245,18 +320,30 @@ export default {
         // #ifdef APP-PLUS
         plus.speech.stopRecognize();
         // #endif
-        
-        // #ifndef APP-PLUS
         if (this.mockTimer) clearTimeout(this.mockTimer);
-        // #endif
       }
     }
   },
+  onShow() {
+      this.loadTasks();
+  },
   onLoad() {
-    uni.$on('add-task', (task) => {
-        // Ensure new tasks have offsetX
-        task.offsetX = 0;
-        this.tasks.unshift(task);
+    try {
+        const res = uni.getSystemInfoSync();
+        this.windowWidth = res.windowWidth;
+        this.windowHeight = res.windowHeight;
+        this.pixelRatio = 750 / res.windowWidth;
+    } catch (e) {
+        this.pixelRatio = 2;
+        this.windowWidth = 375;
+        this.windowHeight = 800;
+    }
+
+    uni.$on('add-task', async (task) => {
+        if (task && task.name) {
+            await db.addTask(task.name);
+            this.loadTasks();
+        }
     });
   },
   onUnload() {
@@ -272,12 +359,15 @@ export default {
   flex-direction: column;
 }
 
-.page-content {
+.scroll-container {
   flex: 1;
+}
+
+.page-content {
   padding-left: 32rpx;
   padding-right: 32rpx;
   padding-top: 48rpx;
-  padding-bottom: 200rpx; /* Added padding for fixed tab bar */
+  padding-bottom: 200rpx;
 }
 
 .header-section { margin-bottom: 48rpx; }
@@ -296,28 +386,47 @@ export default {
 .count-text { font-size: 24rpx; color: #364153; }
 
 .task-list { flex-direction: column; }
-.task-item { 
-    background-color: #FFFFFF; 
-    border-radius: 20rpx; 
-    margin-bottom: 12rpx; 
-    height: 124rpx; 
+.task-item {
+    background-color: #FFFFFF;
+    border-radius: 20rpx;
+    margin-bottom: 12rpx;
+    height: 124rpx;
     position: relative;
-    overflow: hidden; /* Hide delete button initially */
+    overflow: hidden;
+    opacity: 1;
+    transition-property: height, margin-bottom, opacity;
+    transition-duration: 300ms;
+    transition-timing-function: ease-in-out;
+}
+.task-item-hidden {
+    height: 0;
+    margin-bottom: 0;
+    opacity: 0;
 }
 .task-content-wrapper {
     flex-direction: row;
     height: 124rpx;
     background-color: #FFFFFF;
     border-radius: 20rpx;
-    width: 686rpx; /* width of page-content minus padding, but container is flex? */
-    /* Actually page padding is 32rpx each side. 750 - 64 = 686. */
+    width: 686rpx;
 }
-.task-content { 
-    flex-direction: row; 
-    align-items: flex-start; 
+.task-content {
+    flex-direction: row;
+    align-items: flex-start;
     padding: 24rpx;
     flex: 1;
+    position: relative;
 }
+.task-content-animating {
+    transition-property: transform;
+    transition-duration: 300ms;
+    transition-timing-function: ease-out;
+}
+
+.bg-pinned {
+    background-color: #FFF5F0;
+}
+
 .delete-btn {
     position: absolute;
     right: 0;
@@ -336,10 +445,35 @@ export default {
     font-weight: bold;
 }
 
-.checkbox { width: 32rpx; height: 32rpx; border-radius: 12rpx; margin-top: 4rpx; margin-right: 20rpx; justify-content: center; align-items: center; }
-.border-gray { border-width: 4rpx; border-color: #D1D5DC; }
-.border-orange { border-width: 4rpx; border-color: #F1795C; }
-.icon-check { width: 20rpx; height: 16rpx; }
+.checkbox-click-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 343rpx;
+    z-index: 10;
+}
+
+.checkbox {
+    width: 44rpx;
+    height: 44rpx;
+    border-radius: 12rpx;
+    margin-top: 4rpx;
+    margin-right: 20rpx;
+    justify-content: center;
+    align-items: center;
+    border-style: solid;
+    border-width: 4rpx;
+    background-color: #FFFFFF;
+}
+.checkbox-pending {
+    border-color: #D1D5DC;
+}
+.checkbox-completed {
+    border-color: #F1795C;
+    background-color: #F1795C;
+}
+.icon-check { width: 24rpx; height: 20rpx; }
 .task-details { flex: 1; }
 .task-name { font-size: 28rpx; color: #101828; margin-bottom: 4rpx; }
 .text-completed { color: #99A1AF; text-decoration: line-through; }
@@ -396,5 +530,41 @@ export default {
   color: #FFFFFF;
   font-size: 32rpx;
   font-weight: bold;
+}
+
+/* Tooltip Styles */
+.tooltip-mask {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 998;
+}
+.tooltip-box {
+    position: fixed;
+    width: 240rpx;
+    background-color: #FFFFFF;
+    border-radius: 16rpx;
+    box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.15);
+    z-index: 999;
+    flex-direction: column;
+}
+.tooltip-item {
+    height: 88rpx;
+    justify-content: center;
+    align-items: center;
+}
+.tooltip-text {
+    font-size: 28rpx;
+    color: #101828;
+}
+.text-red {
+    color: #FF4D4F;
+}
+.tooltip-separator {
+    height: 2rpx;
+    background-color: #F3F4F6;
+    width: 240rpx;
 }
 </style>

@@ -1,10 +1,10 @@
 <template>
-  <view v-if="show" class="modal-root">
+  <view class="modal-root" :style="{ visibility: show ? 'visible' : 'hidden', opacity: show ? 1 : 0 }">
     <!-- Overlay -->
     <view class="modal-overlay" @click="closeModal"></view>
 
     <!-- Voice Modal Content -->
-    <view class="voice-modal">
+    <view class="voice-modal" :style="{ bottom: keyboardHeight + 'px' }">
       <view class="modal-header">
         <text class="modal-title">语音输入</text>
         <view class="close-btn" @click="closeModal">
@@ -16,10 +16,12 @@
         <text class="modal-label">手动输入 / 点击麦克风开始录音</text>
         <view class="input-area">
           <textarea 
+            v-if="showInput"
             ref="textarea"
             class="input-field" 
             v-model="taskText" 
             :focus="inputFocus"
+            :adjust-position="false"
             placeholder="例如：今天下午3点开会"
             placeholder-style="color: #99A1AF; font-size: 28rpx;"
           ></textarea>
@@ -50,18 +52,48 @@ export default {
   data() {
     return {
       taskText: '',
-      inputFocus: false
+      inputFocus: false,
+      keyboardHeight: 0,
+      showInput: false
     };
+  },
+  created() {
+    uni.onKeyboardHeightChange(res => {
+      this.keyboardHeight = res.height;
+    });
+  },
+  // Vue 3 lifecycle
+  beforeUnmount() {
+    // uni.offKeyboardHeightChange is not always reliable or necessary as page closes, 
+    // but good practice if available, or just let it be. 
+    // UniApp docs say uni.offKeyboardHeightChange(callback). 
+    // Since we use arrow function, we can't remove easily unless we save ref.
+    // For now, simple usage is fine.
   },
   watch: {
     show(newVal) {
       if (newVal) {
+        // Reset input to force re-render
+        this.showInput = false;
         this.inputFocus = false;
+        
+        // Delay to allow visibility transition if any (though we use style visibility)
+        // and to let v-if=false take effect
         setTimeout(() => {
-          this.inputFocus = true;
-        }, 500);
+            this.showInput = true;
+            this.$nextTick(() => {
+                this.inputFocus = true;
+                // Force keyboard a bit later to ensure input is ready
+                setTimeout(() => {
+                    // #ifdef APP-PLUS
+                    plus.key.showSoftInput();
+                    // #endif
+                }, 100);
+            });
+        }, 100);
       } else {
         this.inputFocus = false;
+        this.showInput = false;
         uni.hideKeyboard();
       }
     }
@@ -188,7 +220,6 @@ export default {
   flex-direction: row;
   justify-content: center;
   align-items: center;
-  gap: 20rpx;
 }
 
 .bg-orange { background-color: #F1795C; }

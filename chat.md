@@ -304,3 +304,95 @@ png无法满足我变更颜色的要求，我在项目的static/fonts目录加�
 1.  **左滑删除**：重构任务项，支持手势左滑（最大 `140rpx`）露出删除按钮。
 2.  **触发变更**：点击任务项不再切换状态，必须点击左侧选框触发。
 3.  **交互优化**：状态切换时自动重置滑动状态，左滑新项时自动关闭旧项。
+
+## User
+使用sqllite数据库，将任务数据、使用日历数据、个人中心统计数据通过数据库获取，任务数据初始化一个名为“锻炼30分钟”的待完成任务
+
+## Model
+*(Created `utils/db.js` with SQLite logic, initialized DB in `App.vue`, and updated `pages/index/index.nvue` and `pages/profile/profile.nvue` to use database)*
+
+已完成数据库集成和功能开发：
+1.  **SQLite 集成**：创建了 `utils/db.js`，实现了任务的增删改查、统计和初始化逻辑。
+2.  **首页改造**：任务列表实现了数据持久化，支持创建、删除和状态切换。
+3.  **个人中心改造**：统计数据和日历视图现在基于真实数据库记录实时生成。
+
+## User
+将今日待办下面的时间改为真实的当天日期
+
+## Model
+*(Updated `pages/index/index.nvue`)*
+
+已将首页日期更新为实时显示的“M月D日 星期X”。
+
+## User
+修复语音弹窗无法自动聚焦和唤起输入法的问题
+
+## Model
+*(Updated `components/VoiceModal.nvue` multiple times)*
+
+经过多次迭代（DOM持久化、强制重渲染、调用 `plus.key.showSoftInput`），彻底修复了语音弹窗输入框无法自动获取焦点的问题，并解决了键盘遮挡问题。
+
+## User
+页面内容过多时支持上下滑动
+
+## Model
+*(Updated `pages/index/index.nvue` and `pages/profile/profile.nvue`)*
+
+为首页和个人中心添加了 `<scroll-view>`，并修正了 flex 布局导致的滑动失效问题，现在页面内容过多时可顺畅滚动。
+
+## User
+优化左滑删除体验 (防误触, 阻尼动画, 边缘触发)
+
+## Model
+*(Updated `pages/index/index.nvue` multiple times)*
+
+针对左滑删除进行了多轮优化：
+1.  **防误触**：增加了方向锁定机制。
+2.  **动画优化**：实现了阻尼回弹效果（后又应要求移除果冻效果）。
+3.  **边缘触发**：限制仅在屏幕右侧 30% 区域可触发滑动。
+
+## User
+移除左滑删除，改为长按唤起Tooltip菜单 (置顶, 删除)
+
+## Model
+*(Updated `pages/index/index.nvue` and `utils/db.js`)*
+
+彻底重构了任务操作交互：
+1.  **移除滑动**：删除了所有左滑相关代码。
+2.  **长按菜单**：实现了长按唤起 Tooltip 菜单，包含“置顶”和“删除”功能。
+3.  **数据库更新**：增加了 `pinned` 字段支持置顶功能。
+
+## User
+修复 Tooltip 定位问题 (多次迭代)
+
+## Model
+*(Updated `pages/index/index.nvue` multiple times)*
+
+解决了 Tooltip 定位不准的问题：
+1.  **坐标捕获**：修复了 `longpress` 事件坐标在不同环境下不一致的问题。
+2.  **混合定位**：最终采用了 DOM 垂直锚点 + Touch 水平跟随的混合定位策略，确保 Tooltip 稳定出现在手指左侧，不随页面滚动偏移。
+
+## User
+增加置顶标识 (多次迭代)
+
+## Model
+*(Updated `pages/index/index.nvue`)*
+
+尝试了多种置顶标识方案（左上角三角形、圆点等），最终确定使用**淡橙色背景 (`.bg-pinned`)** 来区分置顶任务，视觉效果更佳。
+
+## User
+增加任务状态切换的动画和扩大点击区域
+
+## Model
+*(Updated `pages/index/index.nvue`)*
+
+1.  **动画**：实现了任务状态切换时的收缩/展开动画。
+2.  **点击区域**：增加了透明遮罩层，将勾选框的点击区域扩大到卡片左侧一半。
+
+## User
+修复编译错误和样式警告
+
+## Model
+*(Updated `pages/index/index.nvue`, `components/VoiceModal.nvue`, `components/TabBar.nvue`)*
+
+修复了 HTML 标签闭合错误，移除了 nvue 不支持的 CSS 属性（`gap`, `display: none`），消除了控制台报错。

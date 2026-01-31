@@ -1,7 +1,11 @@
 <script>
+	import db from '@/utils/db.js';
+
 	export default {
 		onLaunch: function() {
 			console.log('App Launch')
+			// Initialize Database
+			db.initDB();
 		},
 		onShow: function() {
 			console.log('App Show')
