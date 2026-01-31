@@ -396,3 +396,55 @@ png无法满足我变更颜色的要求，我在项目的static/fonts目录加�
 *(Updated `pages/index/index.nvue`, `components/VoiceModal.nvue`, `components/TabBar.nvue`)*
 
 修复了 HTML 标签闭合错误，移除了 nvue 不支持的 CSS 属性（`gap`, `display: none`），消除了控制台报错。
+
+## User
+我的导航栏里“语音对话”图标下的文字看不到了，请帮我修复
+
+## Model
+*(Updated `components/TabBar.nvue`)*
+
+已恢复“语音对话”文字的显示，并统一了样式。
+
+## User
+我的置顶操作，不会理解改变任务卡片的背景色，等我其他操作后才会刷新背景色，感觉有延迟，请帮我修复
+
+## Model
+*(Updated `pages/index/index.nvue`)*
+
+采用“乐观更新”策略，即时修改本地数据状态，消除置顶操作的视觉延迟。
+
+## User
+还是有延迟，我希望在完成置顶或取消置顶操作后，可以立即更新任务卡片的背景色 (多次尝试修复)
+
+## Model
+*(Updated `pages/index/index.nvue`)*
+
+1.  **强制响应式**：使用 `this.$set` 确保 nvue 环境下的数据更新能触发视图渲染。
+2.  **强制刷新**：通过重新赋值任务列表数组，强制触发 `v-for` 循环更新，确保置顶样式立即生效。
+
+## User
+还是不行，请移除置顶相关的原样式修改代码，改为在任务卡片左上角加一个小标识
+
+## Model
+*(Updated `pages/index/index.nvue`)*
+
+1.  **移除背景色**：移除了 `.bg-pinned` 背景色样式。
+2.  **添加标识**：在任务卡片左上角新增了橙色圆角矩形 (`.pinned-mark`) 作为置顶标识，该标识响应迅速，无延迟。
+
+## User
+我的个人中心页面里，日历的高度不够导致里面的图例被截断了，请帮我略微增加些高度以完整的展示内部的元素
+
+## Model
+*(Updated `pages/profile/profile.nvue`)*
+
+将日历组件的高度从 `720rpx` 增加至 `780rpx`，解决了底部图例被截断的问题。
+
+## User
+在任务信息卡片右侧加一个可点击的按钮，点击后进入到一个新的数据页面，是一个操作列表，第一行为修改用户的头像操作，第二为修改用户的名称操作，第三行展示app当前版本号，第四行是清除个人历史数据（个人信息的默认姓名改为“爪印用户”）操作
+
+## Model
+*(Created `pages/settings/settings.nvue`, updated `pages.json`, `pages/profile/profile.nvue`, and `utils/db.js`)*
+
+1.  **新增设置页面**：创建了 `pages/settings/settings.nvue`，包含修改头像、修改昵称、查看版本、清除数据功能。
+2.  **个人中心更新**：增加了“设置”入口，支持用户信息的动态显示和更新。
+3.  **数据库更新**：增加了 `clearAllData` 接口。

@@ -126,8 +126,7 @@ export default {
     color: #FFFFFF;
 }
 .nav-text-voice {
-    opacity: 0;
-    width: 0;
-    height: 0;
+    font-size: 24rpx;
+    color: #6A7282;
 }
 </style>

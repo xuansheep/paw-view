@@ -24,9 +24,10 @@
           <view class="task-list">
             <view class="task-item" :class="[task.animationClass || '']" v-for="(task, index) in pendingTasks" :key="task.id" @touchstart="onTaskTouchStart">
                 <view class="task-content-wrapper" 
-                      :class="[(!task.isDragging ? 'task-content-animating' : ''), (task.pinned ? 'bg-pinned' : '')]"
+                      :class="[(!task.isDragging ? 'task-content-animating' : '')]"
                       @longpress="showTaskMenu($event, task)"
                       :style="{ transform: 'translateX(' + (task.offsetX || 0) + 'rpx)' }">
+                    <view v-if="task.pinned" class="pinned-mark"></view>
                     <view class="task-content">
                         <view class="checkbox-click-area" @click.stop="toggleTask(task.id)"></view>
                         <view class="checkbox checkbox-pending"></view>
@@ -56,9 +57,9 @@
           <view class="task-list">
             <view class="task-item" :class="[task.animationClass || '']" v-for="(task, index) in completedTasks" :key="task.id" @touchstart="onTaskTouchStart">
                 <view class="task-content-wrapper"
-                      :class="[(task.pinned ? 'bg-pinned' : '')]"
                       @longpress="showTaskMenu($event, task)"
                       :style="{ transform: 'translateX(' + (task.offsetX || 0) + 'rpx)' }">
+                    <view v-if="task.pinned" class="pinned-mark"></view>
                     <view class="task-content">
                         <view class="checkbox-click-area" @click.stop="toggleTask(task.id)"></view>
                         <view class="checkbox checkbox-completed">
@@ -222,15 +223,31 @@ export default {
         this.hideTooltip();
         this.loadTasks(); 
     },
-    async togglePin() {
+    togglePin() {
         if (!this.tooltip.taskId) return;
 
         const task = this.tasks.find(t => t.id === this.tooltip.taskId);
         if (task) {
-            await db.toggleTaskPin(task.id, task.pinned);
-            this.loadTasks();
+            // Optimistic Update with $set to ensure reactivity in nvue
+            const oldPinned = task.pinned;
+            const newPinned = !oldPinned;
+            
+            this.$set(task, 'pinned', newPinned);
+
+            // Force reactivity by re-assigning the filtered lists
+            // This ensures the v-for loop updates and the class binding is re-evaluated
+            this.pendingTasks = this.tasks.filter(t => !t.completed);
+            this.completedTasks = this.tasks.filter(t => t.completed);
+            
+            this.hideTooltip();
+
+            // Perform DB update and reload in background
+            db.toggleTaskPin(task.id, oldPinned).then(() => {
+                this.loadTasks();
+            });
+        } else {
+            this.hideTooltip();
         }
-        this.hideTooltip();
     },
     async handleCreateTask(taskName) {
       if (!taskName) return;
@@ -423,8 +440,14 @@ export default {
     transition-timing-function: ease-out;
 }
 
-.bg-pinned {
-    background-color: #FFF5F0;
+.pinned-mark {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 20rpx;
+    height: 20rpx;
+    background-color: #F1795C;
+    border-bottom-right-radius: 20rpx;
 }
 
 .delete-btn {

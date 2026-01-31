@@ -6,12 +6,17 @@
         <view class="profile-header">
           <text class="page-title">个人中心</text>
           <view class="user-card">
-            <view class="avatar-container">
-               <image class="avatar" src="/static/avatar.png" mode="aspectFill"></image>
+            <view class="user-left">
+                <view class="avatar-container">
+                   <image class="avatar" :src="userInfo.avatar" mode="aspectFill"></image>
+                </view>
+                <view class="user-info">
+                  <text class="user-name">{{ userInfo.name }}</text>
+                  <text class="user-days">{{ stats.daysUsed || '已使用 1 天' }}</text>
+                </view>
             </view>
-            <view class="user-info">
-              <text class="user-name">张小明</text>
-              <text class="user-days">{{ stats.daysUsed || '已使用 1 天' }}</text>
+            <view class="settings-btn" @click="goToSettings">
+                 <text class="settings-text">设置</text>
             </view>
           </view>
         </view>
@@ -140,7 +145,11 @@ export default {
       isListening: false,
       stats: {},
       calendarRows: [],
-      currentMonthStr: ''
+      currentMonthStr: '',
+      userInfo: {
+          name: '张小明',
+          avatar: '/static/avatar.png'
+      }
     };
   },
   beforeCreate() {
@@ -153,8 +162,24 @@ export default {
   },
   onShow() {
       this.loadStats();
+      this.loadUserInfo();
   },
   methods: {
+    loadUserInfo() {
+        const u = uni.getStorageSync('user_info');
+        if (u) {
+            this.userInfo.name = u.name || '张小明';
+            this.userInfo.avatar = u.avatar || '/static/avatar.png';
+        } else {
+             this.userInfo.name = '张小明';
+             this.userInfo.avatar = '/static/avatar.png';
+        }
+    },
+    goToSettings() {
+        uni.navigateTo({
+            url: '/pages/settings/settings'
+        });
+    },
     async loadStats() {
         const statsData = await db.getProfileStats();
         this.stats = statsData;
@@ -322,12 +347,15 @@ export default {
 .page-content { padding-left: 32rpx; padding-right: 32rpx; padding-top: 40rpx; padding-bottom: 200rpx; }
 .profile-header { margin-bottom: 24rpx; }
 .page-title { font-size: 48rpx; font-weight: bold; color: #101828; margin-bottom: 24rpx; }
-.user-card { height: 144rpx; background-color: #FFFFFF; border-radius: 32rpx; padding: 24rpx; flex-direction: row; align-items: center; }
+.user-card { height: 144rpx; background-color: #FFFFFF; border-radius: 32rpx; padding: 24rpx; flex-direction: row; align-items: center; justify-content: space-between; }
+.user-left { flex-direction: row; align-items: center; }
 .avatar-container { width: 96rpx; height: 96rpx; border-radius: 48rpx; overflow: hidden; margin-right: 24rpx; }
 .avatar { width: 96rpx; height: 96rpx; border-radius: 48rpx; }
 .user-info { justify-content: center; }
 .user-name { font-size: 32rpx; font-weight: bold; color: #101828; margin-bottom: 4rpx; }
 .user-days { font-size: 24rpx; color: #6A7282; }
+.settings-btn { padding: 10rpx 20rpx; background-color: #F5F7FA; border-radius: 24rpx; }
+.settings-text { font-size: 24rpx; color: #6A7282; font-weight: bold; }
 .stats-section { margin-bottom: 24rpx; }
 .stats-row { flex-direction: row; justify-content: space-between; margin-bottom: 16rpx; }
 .stats-card { width: 334rpx; height: 152rpx; background-color: #FFFFFF; border-radius: 28rpx; padding: 20rpx; }
@@ -340,7 +368,7 @@ export default {
 .icon-stat { width: 24rpx; height: 24rpx; }
 .stats-label { font-size: 24rpx; color: #6A7282; }
 .stats-value { font-size: 36rpx; font-weight: bold; color: #101828; }
-.calendar-section { background-color: #FFFFFF; border-radius: 32rpx; padding: 24rpx; height: 720rpx; }
+.calendar-section { background-color: #FFFFFF; border-radius: 32rpx; padding: 24rpx; height: 780rpx; }
 .calendar-header { flex-direction: row; align-items: center; margin-bottom: 16rpx; }
 .icon-calendar { font-size: 32rpx; color: #F1795C; margin-right: 16rpx; }
 .calendar-title { font-size: 28rpx; font-weight: bold; color: #101828; }

@@ -187,6 +187,11 @@ const deleteTask = async (id) => {
     await executeSQL(sql);
 };
 
+const clearAllData = async () => {
+    const sql = `DELETE FROM tasks`;
+    await executeSQL(sql);
+};
+
 const getProfileStats = async () => {
     // 1. Total Tasks
     const totalRes = await selectSQL("SELECT count(*) as total FROM tasks");
@@ -278,5 +283,6 @@ export default {
     toggleTaskStatus,
     toggleTaskPin,
     deleteTask,
+    clearAllData,
     getProfileStats
 };
