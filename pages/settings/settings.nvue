@@ -1,0 +1,198 @@
+<template>
+    <view class="container">
+        <view class="list-group">
+            <view class="list-item" @click="changeAvatar">
+                <text class="item-label">修改头像</text>
+                <view class="item-right">
+                    <image class="avatar-small" :src="avatarUrl" mode="aspectFill"></image>
+                    <text class="arrow-text">></text>
+                </view>
+            </view>
+            <view class="list-item" @click="changeName">
+                <text class="item-label">修改名称</text>
+                <view class="item-right">
+                    <text class="item-value">{{ userName }}</text>
+                    <text class="arrow-text">></text>
+                </view>
+            </view>
+            <view class="list-item">
+                <text class="item-label">当前版本</text>
+                <view class="item-right">
+                    <text class="item-value">{{ version }}</text>
+                </view>
+            </view>
+            <view class="list-item" @click="clearData">
+                <text class="item-label text-red">清除个人历史数据</text>
+                <view class="item-right">
+                    <text class="arrow-text">></text>
+                </view>
+            </view>
+        </view>
+    </view>
+</template>
+
+<script>
+import db from '@/utils/db.js';
+
+export default {
+    data() {
+        return {
+            userName: '爪印用户',
+            avatarUrl: '/static/avatar.png',
+            version: '1.0.0'
+        }
+    },
+    onLoad() {
+        // #ifdef APP-PLUS
+        plus.runtime.getProperty(plus.runtime.appid, (wgtinfo) => {
+            if (wgtinfo.version) {
+                this.version = wgtinfo.version;
+            }
+        });
+        // #endif
+    },
+    onShow() {
+        const u = uni.getStorageSync('user_info');
+        if (u) {
+            if (u.name) this.userName = u.name;
+            if (u.avatar) this.avatarUrl = u.avatar;
+        } else {
+            // Defaults
+            this.userName = '爪印用户';
+            this.avatarUrl = '/static/avatar.png';
+        }
+    },
+    methods: {
+        saveUser() {
+            uni.setStorageSync('user_info', {
+                name: this.userName,
+                avatar: this.avatarUrl
+            });
+        },
+        changeAvatar() {
+            uni.chooseImage({
+                count: 1,
+                sourceType: ['album', 'camera'],
+                success: (res) => {
+                    // For a real app, we should save this file to permanent storage (`plus.io` or `uni.saveFile`)
+                    // For this prototype, temp path might expire, but let's try to use it.
+                    // Better to use saveFile.
+
+                    const tempFilePath = res.tempFilePaths[0];
+                    uni.saveFile({
+                        tempFilePath: tempFilePath,
+                        success: (saveRes) => {
+                            this.avatarUrl = saveRes.savedFilePath;
+                            this.saveUser();
+                        },
+                        fail: () => {
+                            // Fallback
+                             this.avatarUrl = tempFilePath;
+                             this.saveUser();
+                        }
+                    });
+                }
+            });
+        },
+        changeName() {
+            // #ifdef APP-PLUS
+            plus.nativeUI.prompt("请输入新的用户名称", (e) => {
+                if (e.index === 0 && e.value) { // 0 is usually OK/Confirm
+                    this.userName = e.value;
+                    this.saveUser();
+                }
+            }, "修改名称", this.userName, ["确定", "取消"]);
+            // #endif
+
+            // #ifndef APP-PLUS
+            // H5 Fallback
+            const name = prompt("请输入新的用户名称", this.userName);
+            if (name) {
+                this.userName = name;
+                this.saveUser();
+            }
+            // #endif
+        },
+        clearData() {
+            uni.showModal({
+                title: '提示',
+                content: '确定要清除所有个人历史数据吗？这将清空任务记录并将个人信息重置为默认状态。',
+                success: async (res) => {
+                    if (res.confirm) {
+                        // 1. Clear DB
+                        await db.clearAllData();
+
+                        // 2. Reset Profile
+                        this.userName = '爪印用户';
+                        this.avatarUrl = '/static/avatar.png';
+                        this.saveUser();
+
+                        uni.showToast({
+                            title: '已重置数据',
+                            icon: 'success'
+                        });
+
+                        // Optional: Navigate back after delay
+                        setTimeout(() => {
+                            uni.navigateBack();
+                        }, 1500);
+                    }
+                }
+            })
+        }
+    }
+}
+</script>
+
+<style>
+.container {
+    flex: 1;
+    background-color: #FAFAFA;
+    padding-top: 20rpx;
+}
+.list-group {
+    background-color: #FFFFFF;
+    border-top-width: 1rpx;
+    border-top-color: #EEEEEE;
+    border-bottom-width: 1rpx;
+    border-bottom-color: #EEEEEE;
+}
+.list-item {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    height: 100rpx;
+    padding-left: 30rpx;
+    padding-right: 30rpx;
+    border-bottom-width: 1rpx;
+    border-bottom-color: #F3F4F6;
+}
+.item-label {
+    font-size: 30rpx;
+    color: #333333;
+}
+.item-right {
+    flex-direction: row;
+    align-items: center;
+}
+.avatar-small {
+    width: 70rpx;
+    height: 70rpx;
+    border-radius: 35rpx;
+    margin-right: 16rpx;
+    background-color: #EEEEEE;
+}
+.item-value {
+    font-size: 28rpx;
+    color: #888888;
+    margin-right: 16rpx;
+}
+.arrow-text {
+    font-size: 30rpx;
+    color: #CCCCCC;
+    font-family: monospace; /* Simple arrow */
+}
+.text-red {
+    color: #FF4D4F;
+}
+</style>
