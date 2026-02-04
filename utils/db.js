@@ -89,53 +89,63 @@ const selectSQL = (sql) => {
 };
 
 // Initialize Database
-const initDB = async () => {
-    try {
-        await openDB();
-        
-        // Create Tasks Table
-        const createTableSql = `
-            CREATE TABLE IF NOT EXISTS tasks (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                time TEXT NOT NULL,
-                completed INTEGER DEFAULT 0,
-                pinned INTEGER DEFAULT 0,
-                date TEXT NOT NULL,
-                created_at INTEGER
-            )
-        `;
-        await executeSQL(createTableSql);
+let dbReadyPromise = null;
 
-        // Migration: Ensure 'pinned' column exists for existing tables
-        const tableInfo = await selectSQL("PRAGMA table_info(tasks)");
-        const hasPinned = tableInfo.some(col => col.name === 'pinned');
-        
-        if (!hasPinned) {
-            await executeSQL("ALTER TABLE tasks ADD COLUMN pinned INTEGER DEFAULT 0");
-        }
-        
-        // Check if we need to seed initial data
-        const res = await selectSQL("SELECT count(*) as count FROM tasks");
-        if (res && res[0].count === 0) {
-            console.log("Seeding initial data...");
-            const today = getTodayDate();
-            const time = getNowTime();
-            const timestamp = Date.now();
-            const insertSql = `
-                INSERT INTO tasks (name, time, completed, pinned, date, created_at)
-                VALUES ('锻炼30分钟', '${time}', 0, 0, '${today}', ${timestamp})
+const initDB = async () => {
+    if (dbReadyPromise) return dbReadyPromise;
+    
+    dbReadyPromise = (async () => {
+        try {
+            await openDB();
+            
+            // Create Tasks Table
+            const createTableSql = `
+                CREATE TABLE IF NOT EXISTS tasks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    time TEXT NOT NULL,
+                    completed INTEGER DEFAULT 0,
+                    pinned INTEGER DEFAULT 0,
+                    date TEXT NOT NULL,
+                    created_at INTEGER
+                )
             `;
-            await executeSQL(insertSql);
+            await executeSQL(createTableSql);
+
+            // Migration: Ensure 'pinned' column exists for existing tables
+            const tableInfo = await selectSQL("PRAGMA table_info(tasks)");
+            const hasPinned = tableInfo.some(col => col.name === 'pinned');
+            
+            if (!hasPinned) {
+                await executeSQL("ALTER TABLE tasks ADD COLUMN pinned INTEGER DEFAULT 0");
+            }
+            
+            // Check if we need to seed initial data
+            const res = await selectSQL("SELECT count(*) as count FROM tasks");
+            if (res && res[0].count === 0) {
+                console.log("Seeding initial data...");
+                const today = getTodayDate();
+                const time = getNowTime();
+                const timestamp = Date.now();
+                const insertSql = `
+                    INSERT INTO tasks (name, time, completed, pinned, date, created_at)
+                    VALUES ('锻炼30分钟', '${time}', 0, 0, '${today}', ${timestamp})
+                `;
+                await executeSQL(insertSql);
+            }
+        } catch (e) {
+            console.error('Init DB Error:', e);
+            throw e;
         }
-    } catch (e) {
-        console.error('Init DB Error:', e);
-    }
+    })();
+    
+    return dbReadyPromise;
 };
 
 // API Methods
 
 const addTask = async (name) => {
+    await initDB();
     const today = getTodayDate();
     const time = getNowTime();
     const timestamp = Date.now();
@@ -156,6 +166,7 @@ const addTask = async (name) => {
 };
 
 const getTasksByDate = async (date) => {
+    await initDB();
     // Default to today if no date provided
     const targetDate = date || getTodayDate();
     const sql = `SELECT * FROM tasks WHERE date = '${targetDate}' ORDER BY pinned DESC, created_at DESC`;
@@ -169,6 +180,7 @@ const getTasksByDate = async (date) => {
 };
 
 const toggleTaskStatus = async (id, currentStatus) => {
+    await initDB();
     const newStatus = currentStatus ? 0 : 1;
     const sql = `UPDATE tasks SET completed = ${newStatus} WHERE id = ${id}`;
     await executeSQL(sql);
@@ -176,6 +188,7 @@ const toggleTaskStatus = async (id, currentStatus) => {
 };
 
 const toggleTaskPin = async (id, currentPinned) => {
+    await initDB();
     const newPinned = currentPinned ? 0 : 1;
     const sql = `UPDATE tasks SET pinned = ${newPinned} WHERE id = ${id}`;
     await executeSQL(sql);
@@ -183,16 +196,19 @@ const toggleTaskPin = async (id, currentPinned) => {
 };
 
 const deleteTask = async (id) => {
+    await initDB();
     const sql = `DELETE FROM tasks WHERE id = ${id}`;
     await executeSQL(sql);
 };
 
 const clearAllData = async () => {
+    await initDB();
     const sql = `DELETE FROM tasks`;
     await executeSQL(sql);
 };
 
 const getProfileStats = async () => {
+    await initDB();
     // 1. Total Tasks
     const totalRes = await selectSQL("SELECT count(*) as total FROM tasks");
     const total = totalRes[0].total;

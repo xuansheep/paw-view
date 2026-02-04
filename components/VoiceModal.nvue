@@ -86,7 +86,9 @@ export default {
                 // Force keyboard a bit later to ensure input is ready
                 setTimeout(() => {
                     // #ifdef APP-PLUS
-                    plus.key.showSoftInput();
+                    if (plus.key && typeof plus.key.showSoftInput === 'function') {
+                        plus.key.showSoftInput();
+                    }
                     // #endif
                 }, 100);
             });

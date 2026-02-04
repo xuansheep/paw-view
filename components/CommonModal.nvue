@@ -1,0 +1,186 @@
+<template>
+  <view class="modal-root" v-if="visible">
+    <!-- Overlay -->
+    <view class="modal-overlay" @click="handleCancel"></view>
+
+    <!-- Modal Content -->
+    <view class="modal-container">
+      <!-- Header -->
+      <view class="modal-header">
+        <text class="modal-title">{{ title }}</text>
+      </view>
+
+      <!-- Body -->
+      <view class="modal-body">
+        <text v-if="content" class="modal-text">{{ content }}</text>
+        <slot></slot>
+      </view>
+
+      <!-- Footer -->
+      <view class="modal-footer">
+        <view v-if="showCancel" class="modal-btn btn-cancel" @click="handleCancel">
+          <text class="btn-text text-gray">{{ cancelText }}</text>
+        </view>
+        <view class="modal-btn btn-confirm" @click="handleConfirm">
+          <text class="btn-text text-white">{{ confirmText }}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script>
+export default {
+  props: {
+    visible: {
+      type: Boolean,
+      default: false
+    },
+    title: {
+      type: String,
+      default: '提示'
+    },
+    content: {
+      type: String,
+      default: ''
+    },
+    showCancel: {
+      type: Boolean,
+      default: true
+    },
+    confirmText: {
+      type: String,
+      default: '确定'
+    },
+    cancelText: {
+      type: String,
+      default: '取消'
+    }
+  },
+  watch: {
+    visible(val) {
+      if (!val) {
+        uni.hideKeyboard();
+      }
+    }
+  },
+  methods: {
+    handleCancel() {
+      uni.hideKeyboard();
+      this.$emit('cancel');
+    },
+    handleConfirm() {
+      this.$emit('confirm');
+    }
+  }
+}
+</script>
+
+<style>
+.modal-root {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+}
+
+.modal-container {
+  width: 600rpx;
+  background-color: #FFFFFF;
+  border-radius: 24rpx;
+  overflow: hidden;
+  opacity: 1;
+  transform: scale(1);
+}
+
+.modal-header {
+  padding-top: 48rpx;
+  padding-bottom: 32rpx;
+  align-items: center;
+}
+
+.modal-title {
+  font-size: 34rpx;
+  font-weight: bold;
+  color: #101828;
+}
+
+.modal-body {
+  padding-left: 48rpx;
+  padding-right: 48rpx;
+  padding-bottom: 48rpx;
+  justify-content: center;
+}
+
+.modal-text {
+  font-size: 30rpx;
+  color: #6A7282;
+  text-align: center;
+  line-height: 44rpx;
+}
+
+.modal-footer {
+  flex-direction: row;
+  height: 100rpx;
+  border-top-width: 2rpx;
+  border-top-color: #F3F4F6;
+}
+
+.modal-btn {
+  flex: 1;
+  justify-content: center;
+  align-items: center;
+}
+
+.btn-cancel {
+  border-right-width: 2rpx;
+  border-right-color: #F3F4F6;
+}
+
+.btn-confirm {
+  /* background-color: #FFF; */ 
+  /* Usually standard modal buttons are white bg with colored text, 
+     or one colored button. Let's stick to simple text buttons for "iOS style" 
+     or filled button for "Material style". 
+     Given the app style (orange primary), let's make the confirm text orange.
+  */
+}
+
+.btn-text {
+  font-size: 32rpx;
+  font-weight: bold;
+}
+
+.text-gray {
+  color: #6A7282;
+  font-weight: normal;
+}
+
+.text-white {
+  /* Changing design decision: Let's use the App's primary color for text instead of background button */
+  color: #F1795C; 
+}
+
+/* If we want filled button style, un-comment below and adjust template class */
+/*
+.btn-confirm-filled {
+    background-color: #F1795C;
+}
+.text-white-filled {
+    color: #FFFFFF;
+}
+*/
+</style>

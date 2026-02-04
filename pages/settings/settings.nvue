@@ -28,18 +28,42 @@
                 </view>
             </view>
         </view>
+
+        <!-- Common Modal -->
+        <common-modal
+            :visible="modalVisible"
+            :title="modalTitle"
+            :content="modalType === 'clear' ? '确定要清除所有个人历史数据吗？这将清空任务记录并将个人信息重置为默认状态。' : ''"
+            :confirm-text="modalType === 'clear' ? '确认清除' : '保存'"
+            @confirm="onModalConfirm"
+            @cancel="modalVisible = false"
+        >
+            <view v-if="modalType === 'name'" class="input-wrapper">
+                <input class="modal-input" type="text" v-model="newName" placeholder="请输入新的昵称" :focus="modalVisible" />
+            </view>
+        </common-modal>
     </view>
 </template>
 
 <script>
 import db from '@/utils/db.js';
+import CommonModal from '@/components/CommonModal.nvue';
 
 export default {
+    components: {
+        CommonModal
+    },
     data() {
         return {
             userName: '爪印用户',
             avatarUrl: '/static/avatar.png',
-            version: '1.0.0'
+            version: '1.0.0',
+            
+            // Modal State
+            modalVisible: false,
+            modalType: '', // 'name' | 'clear'
+            modalTitle: '',
+            newName: ''
         }
     },
     onLoad() {
@@ -74,10 +98,6 @@ export default {
                 count: 1,
                 sourceType: ['album', 'camera'],
                 success: (res) => {
-                    // For a real app, we should save this file to permanent storage (`plus.io` or `uni.saveFile`)
-                    // For this prototype, temp path might expire, but let's try to use it.
-                    // Better to use saveFile.
-
                     const tempFilePath = res.tempFilePaths[0];
                     uni.saveFile({
                         tempFilePath: tempFilePath,
@@ -86,7 +106,6 @@ export default {
                             this.saveUser();
                         },
                         fail: () => {
-                            // Fallback
                              this.avatarUrl = tempFilePath;
                              this.saveUser();
                         }
@@ -95,50 +114,41 @@ export default {
             });
         },
         changeName() {
-            // #ifdef APP-PLUS
-            plus.nativeUI.prompt("请输入新的用户名称", (e) => {
-                if (e.index === 0 && e.value) { // 0 is usually OK/Confirm
-                    this.userName = e.value;
-                    this.saveUser();
-                }
-            }, "修改名称", this.userName, ["确定", "取消"]);
-            // #endif
-
-            // #ifndef APP-PLUS
-            // H5 Fallback
-            const name = prompt("请输入新的用户名称", this.userName);
-            if (name) {
-                this.userName = name;
-                this.saveUser();
-            }
-            // #endif
+            this.modalType = 'name';
+            this.modalTitle = '修改名称';
+            this.newName = this.userName;
+            this.modalVisible = true;
         },
         clearData() {
-            uni.showModal({
-                title: '提示',
-                content: '确定要清除所有个人历史数据吗？这将清空任务记录并将个人信息重置为默认状态。',
-                success: async (res) => {
-                    if (res.confirm) {
-                        // 1. Clear DB
-                        await db.clearAllData();
-
-                        // 2. Reset Profile
-                        this.userName = '爪印用户';
-                        this.avatarUrl = '/static/avatar.png';
-                        this.saveUser();
-
-                        uni.showToast({
-                            title: '已重置数据',
-                            icon: 'success'
-                        });
-
-                        // Optional: Navigate back after delay
-                        setTimeout(() => {
-                            uni.navigateBack();
-                        }, 1500);
-                    }
+            this.modalType = 'clear';
+            this.modalTitle = '确认清除';
+            this.modalVisible = true;
+        },
+        async onModalConfirm() {
+            if (this.modalType === 'name') {
+                if (this.newName && this.newName.trim()) {
+                    this.userName = this.newName.trim();
+                    this.saveUser();
+                    this.modalVisible = false;
+                } else {
+                    uni.showToast({ title: '名称不能为空', icon: 'none' });
                 }
-            })
+            } else if (this.modalType === 'clear') {
+                // 1. Clear DB
+                await db.clearAllData();
+
+                // 2. Reset Profile
+                this.userName = '爪印用户';
+                this.avatarUrl = '/static/avatar.png';
+                this.saveUser();
+
+                this.modalVisible = false;
+
+                uni.showToast({
+                    title: '已重置数据',
+                    icon: 'success'
+                });
+            }
         }
     }
 }
@@ -194,5 +204,18 @@ export default {
 }
 .text-red {
     color: #FF4D4F;
+}
+
+/* Modal Input Styles */
+.input-wrapper {
+    background-color: #F5F7FA;
+    border-radius: 12rpx;
+    padding: 16rpx;
+    margin-top: 10rpx;
+}
+.modal-input {
+    font-size: 30rpx;
+    color: #333333;
+    height: 60rpx;
 }
 </style>

@@ -98,7 +98,7 @@
            <image class="listening-icon" src="/static/mic-icon-white.png" mode="aspectFit"></image>
            <view class="ripple-ring"></view>
         </view>
-        <text class="listening-text">正在听...</text>
+        <text class="listening-text">{{ realTimeText || '正在听...' }}</text>
       </view>
     </view>
 
@@ -125,6 +125,16 @@ import db from '@/utils/db.js';
 const dom = uni.requireNativePlugin('dom');
 // #endif
 
+// Recorder and Socket configuration
+const RECORDER_OPTS = {
+    duration: 60000,
+    sampleRate: 16000,
+    numberOfChannels: 1,
+    format: 'pcm',
+    frameSize: 6400 // approx 0.2s for 16k 16bit mono (16000 * 2 * 0.2)
+};
+const WS_URL = "ws://openspeech.corgier.cn/ws/asr";
+
 export default {
   components: {
     VoiceModal,
@@ -134,6 +144,10 @@ export default {
     return {
       showVoiceModal: false,
       isListening: false,
+      realTimeText: '', // Display real-time ASR result
+      isConnectionPending: false,
+      isSocketClosing: false,
+      currentSessionId: 0,
       tasks: [],
       pendingTasks: [],
       completedTasks: [],
@@ -306,38 +320,206 @@ export default {
         this.tooltip.visible = false;
     },
 
-    onVoiceLongPress() {
+    // Voice Interaction with WebSocket
+    initRecorder() {
+        this.recorderManager = uni.getRecorderManager();
+        this.recorderManager.onFrameRecorded((res) => {
+            console.log('Frame recorded, size:', res.frameBuffer.byteLength);
+            if (this.socketTask && this.isSocketOpen) {
+                this.socketTask.send({
+                    data: res.frameBuffer,
+                    fail: (e) => {
+                        console.error('Socket send failed:', JSON.stringify(e));
+                    }
+                });
+            }
+        });
+        this.recorderManager.onStart(() => {
+            console.log('Recorder started successfully. Options:', JSON.stringify(RECORDER_OPTS));
+        });
+        this.recorderManager.onError((err) => {
+            console.error('Recorder error:', JSON.stringify(err));
+        });
+        this.recorderManager.onStop((res) => {
+             console.log('Recorder stopped. Temp file:', res.tempFilePath);
+        });
+    },
+
+    async onVoiceLongPress() {
+      // Prevent frequent triggering
+      if (this.isConnectionPending || this.isSocketClosing) return;
+      
+      // Check Permissions first (APP-PLUS only)
+      // #ifdef APP-PLUS
+      const status = await this.checkPermission();
+      if (status !== 1) {
+          console.log('Permission not granted');
+          return;
+      }
+      // #endif
+
+      this.isConnectionPending = true;
+
       uni.vibrateShort();
       this.isListening = true;
+      this.realTimeText = '';
+      this.isSocketOpen = false;
+      
+      // Generate new Session ID
+      const sessionId = Date.now();
+      this.currentSessionId = sessionId;
 
-      // #ifdef APP-PLUS
-      plus.speech.startRecognize({
-        engine: 'iFly',
-        lang: 'zh-cn'
-      }, (s) => {
-        this.handleCreateTask(s);
-        this.isListening = false;
-      }, (e) => {
-        console.log('语音识别失败：' + e.message);
-        this.isListening = false;
+      // Cleanup existing socket if any (Wait for it to close)
+      if (this.socketTask) {
+          await this.closeSocketAsync();
+      }
+
+      // Initialize Socket
+      this.socketTask = uni.connectSocket({
+          url: WS_URL,
+          success: () => {
+              console.log('Socket connecting...', sessionId);
+          },
+          fail: (e) => {
+              console.error('Socket connect failed', JSON.stringify(e));
+              if (this.currentSessionId === sessionId) {
+                 this.isConnectionPending = false;
+                 this.isListening = false;
+              }
+          }
       });
-      // #endif
 
-      // #ifndef APP-PLUS
-      this.mockTimer = setTimeout(() => {
-        if (this.isListening) {
-           this.handleCreateTask("模拟语音任务 " + Math.floor(Math.random() * 100));
-        }
-      }, 2000);
-      // #endif
+      this.socketTask.onOpen(() => {
+          if (this.currentSessionId !== sessionId) return;
+          this.isConnectionPending = false;
+          console.log('Socket opened', sessionId);
+          if (!this.isListening) {
+              console.log('User released early, closing socket');
+              this.closeSocketAsync();
+              return;
+          }
+          this.isSocketOpen = true;
+          
+          try {
+             this.recorderManager.stop(); 
+          } catch(e){}
+          
+          setTimeout(() => {
+             if (this.currentSessionId === sessionId) {
+                 this.recorderManager.start(RECORDER_OPTS);
+             }
+          }, 100);
+      });
+
+      this.socketTask.onMessage((res) => {
+          if (this.currentSessionId !== sessionId) return;
+          console.log('Socket Message Received:', res.data);
+          try {
+              const data = JSON.parse(res.data);
+              if (data.text) {
+                  this.realTimeText = data.text;
+                  console.log('解析文本:', data.text);
+              }
+              if (data.is_final) {
+                  this.finalResult = data.text;
+                  console.log('识别结束，最终结果:', data.text);
+              }
+          } catch (e) {
+              console.error('JSON parse error or non-json message', e);
+          }
+      });
+
+      this.socketTask.onError((err) => {
+          if (this.currentSessionId !== sessionId) return;
+          console.error('Socket Error Detailed:', JSON.stringify(err));
+          
+          this.isConnectionPending = false;
+          this.isSocketOpen = false;
+          try {
+              this.recorderManager.stop();
+          } catch(e){}
+      });
+      
+      this.socketTask.onClose((res) => {
+          if (this.currentSessionId !== sessionId) return;
+          console.log('Socket closed', sessionId, 'Reason:', JSON.stringify(res));
+          this.isSocketOpen = false;
+      });
     },
-    onVoiceTouchEnd() {
-      if (this.isListening) {
-        this.isListening = false;
-        // #ifdef APP-PLUS
-        plus.speech.stopRecognize();
-        // #endif
-        if (this.mockTimer) clearTimeout(this.mockTimer);
+
+    closeSocketAsync() {
+        return new Promise((resolve) => {
+            if (this.socketTask) {
+                this.isSocketClosing = true;
+                try {
+                    this.socketTask.close();
+                } catch(e) {}
+                this.socketTask = null;
+                // Force wait for cleanup
+                setTimeout(() => {
+                    this.isSocketClosing = false;
+                    resolve();
+                }, 300);
+            } else {
+                resolve();
+            }
+        });
+    },
+
+    // #ifdef APP-PLUS
+    async checkPermission() {
+        if (uni.getSystemInfoSync().platform === 'android') {
+            return new Promise((resolve) => {
+                plus.android.requestPermissions(
+                    ['android.permission.RECORD_AUDIO'],
+                    (e) => {
+                        if (e.granted.length > 0) {
+                            resolve(1); // Granted
+                        } else {
+                            resolve(0); // Denied
+                        }
+                    },
+                    (e) => {
+                        resolve(0); // Error
+                    }
+                );
+            });
+        }
+        return 1; // iOS or others, assume handled by OS/Uni
+    },
+    // #endif
+
+    async onVoiceTouchEnd() {
+      if (!this.isListening) return;
+
+      // Stop recording
+      if (this.recorderManager) {
+          this.recorderManager.stop();
+      }
+
+      // Send STOP signal
+      if (this.socketTask && this.isSocketOpen) {
+          this.socketTask.send({
+              data: 'STOP',
+              fail: () => {
+                  this.closeSocketAsync();
+              }
+          });
+          
+          // Give it a moment to receive final message then close
+          setTimeout(() => {
+              if (this.realTimeText) {
+                  this.handleCreateTask(this.realTimeText);
+              }
+              this.closeSocketAsync();
+              this.isListening = false;
+              this.realTimeText = '';
+              this.isConnectionPending = false;
+          }, 500); // Wait 500ms for final response
+      } else {
+          this.isListening = false;
+          await this.closeSocketAsync();
+          this.isConnectionPending = false;
       }
     }
   },
@@ -355,6 +537,8 @@ export default {
         this.windowWidth = 375;
         this.windowHeight = 800;
     }
+
+    this.initRecorder();
 
     uni.$on('add-task', async (task) => {
         if (task && task.name) {

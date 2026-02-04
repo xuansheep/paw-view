@@ -119,7 +119,7 @@
            <image class="listening-icon" src="/static/mic-icon-white.png" mode="aspectFit"></image>
            <view class="ripple-ring"></view>
         </view>
-        <text class="listening-text">正在听...</text>
+        <text class="listening-text">{{ realTimeText || '正在听...' }}</text>
       </view>
     </view>
   </view>
@@ -134,6 +134,15 @@ import db from '@/utils/db.js';
 const dom = uni.requireNativePlugin('dom');
 // #endif
 
+const RECORDER_OPTS = {
+    duration: 60000,
+    sampleRate: 16000,
+    numberOfChannels: 1,
+    format: 'pcm',
+    frameSize: 6400
+};
+const WS_URL = "ws://openspeech.corgier.cn/ws/asr";
+
 export default {
   components: {
     VoiceModal,
@@ -143,11 +152,15 @@ export default {
     return {
       showVoiceModal: false,
       isListening: false,
+      realTimeText: '', // Sync with index
+      isConnectionPending: false,
+      isSocketClosing: false,
+      currentSessionId: 0,
       stats: {},
       calendarRows: [],
       currentMonthStr: '',
       userInfo: {
-          name: '张小明',
+          name: '爪印用户',
           avatar: '/static/avatar.png'
       }
     };
@@ -164,14 +177,17 @@ export default {
       this.loadStats();
       this.loadUserInfo();
   },
+  onLoad() {
+      this.initRecorder();
+  },
   methods: {
     loadUserInfo() {
         const u = uni.getStorageSync('user_info');
         if (u) {
-            this.userInfo.name = u.name || '张小明';
+            this.userInfo.name = u.name || '爪印用户';
             this.userInfo.avatar = u.avatar || '/static/avatar.png';
         } else {
-             this.userInfo.name = '张小明';
+             this.userInfo.name = '爪印用户';
              this.userInfo.avatar = '/static/avatar.png';
         }
     },
@@ -230,58 +246,105 @@ export default {
     },
     async handleCreateTask(taskName) {
       if (!taskName) return;
-      
-      // Save to DB
       await db.addTask(taskName);
-      
       this.showVoiceModal = false;
-
-      // Navigate to index (will reload tasks)
-      uni.redirectTo({
-          url: '/pages/index/index'
-      });
+      uni.redirectTo({ url: '/pages/index/index' });
     },
-    onVoiceLongPress() {
-      // Short vibration
+    // Voice Interaction Sync with Index
+    initRecorder() {
+        this.recorderManager = uni.getRecorderManager();
+        this.recorderManager.onFrameRecorded((res) => {
+            if (this.socketTask && this.isSocketOpen) {
+                this.socketTask.send({ data: res.frameBuffer });
+            }
+        });
+    },
+    async onVoiceLongPress() {
+      // #ifdef APP-PLUS
+      const status = await this.checkPermission();
+      if (status !== 1) return;
+      // #endif
+
       uni.vibrateShort();
       this.isListening = true;
+      this.realTimeText = '';
+      this.isSocketOpen = false;
+      const sessionId = Date.now();
+      this.currentSessionId = sessionId;
+
+      // Initialize Socket
+      try {
+          this.socketTask = uni.connectSocket({
+              url: WS_URL,
+              complete: ()=> {} // Ensure it returns SocketTask by providing at least one callback? No, let's try standard way.
+          });
+      } catch (e) {
+          console.error('Connect Socket Error:', e);
+          this.isListening = false;
+          return;
+      }
       
-      // Start Speech Recognition
-      // #ifdef APP-PLUS
-      plus.speech.startRecognize({
-        engine: 'iFly',
-        lang: 'zh-cn'
-      }, (s) => {
-        this.handleCreateTask(s);
-        this.isListening = false;
-      }, (e) => {
-        console.log('语音识别失败：' + e.message);
-        this.isListening = false;
+      if (!this.socketTask) {
+          console.error('Failed to create socket task');
+          this.isListening = false;
+          return;
+      }
+
+      this.socketTask.onOpen(() => {
+          if (this.currentSessionId !== sessionId) return;
+          this.isSocketOpen = true;
+          this.recorderManager.start({
+              duration: 60000,
+              sampleRate: 16000,
+              numberOfChannels: 1,
+              format: 'pcm',
+              frameSize: 6400
+          });
       });
-      // #endif
-      
-      // #ifndef APP-PLUS
-      console.log('Not in App environment, mocking voice input.');
-      // Mocking for H5/Dev
-      this.mockTimer = setTimeout(() => {
-        if (this.isListening) {
-           this.handleCreateTask("模拟语音任务 " + Math.floor(Math.random() * 100));
-        }
-      }, 2000);
-      // #endif
+
+      this.socketTask.onMessage((res) => {
+          if (this.currentSessionId !== sessionId) return;
+          try {
+              const data = JSON.parse(res.data);
+              if (data.text) {
+                  this.realTimeText = data.text;
+              }
+          } catch (e) {}
+      });
+
+      this.socketTask.onError(() => {
+          this.isListening = false;
+          this.isSocketOpen = false;
+      });
     },
     onVoiceTouchEnd() {
-      if (this.isListening) {
-        this.isListening = false;
-        // #ifdef APP-PLUS
-        plus.speech.stopRecognize();
-        // #endif
-        
-        // #ifndef APP-PLUS
-        if (this.mockTimer) clearTimeout(this.mockTimer);
-        // #endif
+      if (!this.isListening) return;
+      this.recorderManager.stop();
+      if (this.socketTask && this.isSocketOpen) {
+          this.socketTask.send({ data: 'STOP' });
+          setTimeout(() => {
+              if (this.realTimeText) this.handleCreateTask(this.realTimeText);
+              if (this.socketTask) this.socketTask.close();
+              this.isListening = false;
+              this.realTimeText = '';
+          }, 500);
+      } else {
+          this.isListening = false;
+          if (this.socketTask) this.socketTask.close();
       }
+    },
+    // #ifdef APP-PLUS
+    async checkPermission() {
+        if (uni.getSystemInfoSync().platform === 'android') {
+            return new Promise((resolve) => {
+                plus.android.requestPermissions(['android.permission.RECORD_AUDIO'], (e) => {
+                    resolve(e.granted.length > 0 ? 1 : 0);
+                }, () => resolve(0));
+            });
+        }
+        return 1;
     }
+    // #endif
   }
 };
 </script>
