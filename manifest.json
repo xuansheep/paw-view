@@ -2,10 +2,26 @@
     "name" : "爪印",
     "appid" : "__UNI__FE7511F",
     "description" : "",
-    "versionName" : "1.0.0",
-    "versionCode" : "100",
+    "versionName" : "1.0.1",
+    "versionCode" : 101,
     "transformPx" : false,
     "app-plus" : {
+        "nativePlugins" : {
+            "Paw-Recorder" : {
+                "__plugin_info__" : {
+                    "name" : "Paw-Recorder",
+                    "description" : "Native PCM Recorder for Real-time ASR",
+                    "platforms" : "Android",
+                    "url" : "",
+                    "android_package_name" : "",
+                    "ios_bundle_id" : "",
+                    "isCloud" : false,
+                    "bought" : -1,
+                    "pid" : "",
+                    "parameters" : {}
+                }
+            }
+        },
         "nvueCompiler" : "uni-app",
         "compilerVersion" : 3,
         "modules" : {
@@ -70,7 +86,14 @@
                         "spotlight@3x" : "unpackage/res/icons/120x120.png"
                     }
                 }
+            },
+            "splashscreen" : {
+                "androidStyle" : "common"
             }
+        },
+        "renderer" : "native",
+        "splashscreen" : {
+            "waiting" : true
         }
     },
     "quickapp" : {},

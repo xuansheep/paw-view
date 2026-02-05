@@ -100,11 +100,9 @@
     </scroll-view>
 
     <!-- Navigation -->
-
-    <!-- Navigation -->
     <tab-bar 
       current-page="profile" 
-      @voice-click="showVoiceModal = true"
+      @voice-click="onVoiceClick"
       @voice-longpress="onVoiceLongPress"
       @voice-touchend="onVoiceTouchEnd"
     ></tab-bar>
@@ -139,9 +137,9 @@ const RECORDER_OPTS = {
     sampleRate: 16000,
     numberOfChannels: 1,
     format: 'pcm',
-    frameSize: 6400
+    frameSize: 4 // 4KB
 };
-const WS_URL = "ws://openspeech.corgier.cn/ws/asr";
+const WS_URL = "ws://1.tcp.cpolar.cn:22333/ws/asr";
 
 export default {
   components: {
@@ -154,7 +152,7 @@ export default {
       isListening: false,
       realTimeText: '', // Sync with index
       isConnectionPending: false,
-      isSocketClosing: false,
+      isSocketOpen: false,
       currentSessionId: 0,
       stats: {},
       calendarRows: [],
@@ -162,7 +160,8 @@ export default {
       userInfo: {
           name: '爪印用户',
           avatar: '/static/avatar.png'
-      }
+      },
+      pawRecorder: null
     };
   },
   beforeCreate() {
@@ -250,101 +249,134 @@ export default {
       this.showVoiceModal = false;
       uni.redirectTo({ url: '/pages/index/index' });
     },
-    // Voice Interaction Sync with Index
+    onVoiceClick() {
+        if (this.isListening || this.isConnectionPending) return;
+        this.showVoiceModal = true;
+    },
+    // Voice Interaction: Native Plugin Logic
     initRecorder() {
-        this.recorderManager = uni.getRecorderManager();
-        this.recorderManager.onFrameRecorded((res) => {
-            if (this.socketTask && this.isSocketOpen) {
-                this.socketTask.send({ data: res.frameBuffer });
+        // 加载原生插件
+        this.pawRecorder = uni.requireNativePlugin('Paw-Recorder');
+        const globalEvent = uni.requireNativePlugin('globalEvent');
+        
+        // 监听原生插件发出的 PCM 数据帧
+        globalEvent.addEventListener('onPawRecorderFrame', (e) => {
+            if (this.isListening && this.isSocketOpen && e.data) {
+                // 原生层传回的是 Base64，需要转为 ArrayBuffer 发送
+                const arrayBuffer = uni.base64ToArrayBuffer(e.data);
+                this.socketTask.send({
+                    data: arrayBuffer,
+                    fail: (err) => console.error('[Socket] 发送失败:', err)
+                });
             }
         });
     },
+
     async onVoiceLongPress() {
+      if (this.isListening || this.isConnectionPending || this.showVoiceModal) return;
+
       // #ifdef APP-PLUS
-      const status = await this.checkPermission();
-      if (status !== 1) return;
+      if (uni.getSystemInfoSync().platform === 'android') {
+          const permStatus = plus.navigator.checkPermission('RECORD');
+          if (permStatus !== 'authorized') {
+              // 请求权限时不显示蒙版，避免权限弹窗中断触摸导致蒙版不消失
+              plus.android.requestPermissions(['android.permission.RECORD_AUDIO'], (e) => {
+                  if (e.granted.length > 0) {
+                      uni.showToast({ title: '麦克风权限已开启，请再次长按', icon: 'none' });
+                  } else {
+                      uni.showToast({ title: '需要麦克风权限才能使用语音功能', icon: 'none' });
+                  }
+              }, () => {});
+              return;
+          }
+      }
       // #endif
 
+      this.isConnectionPending = true;
       uni.vibrateShort();
       this.isListening = true;
-      this.realTimeText = '';
+      this.realTimeText = '正在连接...';
       this.isSocketOpen = false;
       const sessionId = Date.now();
       this.currentSessionId = sessionId;
 
-      // Initialize Socket
-      try {
-          this.socketTask = uni.connectSocket({
-              url: WS_URL,
-              complete: ()=> {} // Ensure it returns SocketTask by providing at least one callback? No, let's try standard way.
-          });
-      } catch (e) {
-          console.error('Connect Socket Error:', e);
-          this.isListening = false;
-          return;
-      }
-      
-      if (!this.socketTask) {
-          console.error('Failed to create socket task');
-          this.isListening = false;
-          return;
-      }
+      console.log('[Native] 建立 Socket 连接:', WS_URL);
+      this.socketTask = uni.connectSocket({
+          url: WS_URL,
+          fail: (err) => {
+              console.error('[Socket] 连接失败:', err);
+              this.isConnectionPending = false;
+              this.isListening = false;
+          }
+      });
 
       this.socketTask.onOpen(() => {
           if (this.currentSessionId !== sessionId) return;
+          console.log('[Socket] 连接已打开');
           this.isSocketOpen = true;
-          this.recorderManager.start({
-              duration: 60000,
-              sampleRate: 16000,
-              numberOfChannels: 1,
-              format: 'pcm',
-              frameSize: 6400
-          });
+          this.isConnectionPending = false;
+          if (!this.isListening) {
+              this.socketTask.close();
+              return;
+          }
+          console.log('[Native] 启动原生录音机');
+          this.realTimeText = '正在听...';
+          // 调用原生插件开始录音
+          if (this.pawRecorder) {
+              this.pawRecorder.startRecorder();
+          } else {
+              console.error('[Native] 插件未加载');
+          }
       });
 
       this.socketTask.onMessage((res) => {
           if (this.currentSessionId !== sessionId) return;
           try {
               const data = JSON.parse(res.data);
-              if (data.text) {
-                  this.realTimeText = data.text;
-              }
+              if (data.text) this.realTimeText = data.text;
           } catch (e) {}
       });
 
-      this.socketTask.onError(() => {
-          this.isListening = false;
+      this.socketTask.onError((err) => {
+          console.error('[Socket] 错误:', err);
+          this.stopNativeInteraction();
+      });
+      this.socketTask.onClose(() => {
+          console.log('[Socket] 关闭');
           this.isSocketOpen = false;
       });
     },
-    onVoiceTouchEnd() {
+    
+    async onVoiceTouchEnd() {
       if (!this.isListening) return;
-      this.recorderManager.stop();
-      if (this.socketTask && this.isSocketOpen) {
-          this.socketTask.send({ data: 'STOP' });
-          setTimeout(() => {
-              if (this.realTimeText) this.handleCreateTask(this.realTimeText);
-              if (this.socketTask) this.socketTask.close();
-              this.isListening = false;
-              this.realTimeText = '';
-          }, 500);
-      } else {
-          this.isListening = false;
-          if (this.socketTask) this.socketTask.close();
-      }
+      console.log('[Native] 用户松手');
+      this.stopNativeInteraction();
     },
-    // #ifdef APP-PLUS
-    async checkPermission() {
-        if (uni.getSystemInfoSync().platform === 'android') {
-            return new Promise((resolve) => {
-                plus.android.requestPermissions(['android.permission.RECORD_AUDIO'], (e) => {
-                    resolve(e.granted.length > 0 ? 1 : 0);
-                }, () => resolve(0));
-            });
+
+    stopNativeInteraction() {
+        // 停止原生录音
+        if (this.pawRecorder) {
+            this.pawRecorder.stopRecorder();
         }
-        return 1;
+        
+        // 发送结束指令
+        if (this.socketTask && this.isSocketOpen) {
+            this.socketTask.send({ data: 'STOP' });
+            setTimeout(() => {
+                if (this.realTimeText) {
+                    this.handleCreateTask(this.realTimeText);
+                }
+                if (this.socketTask) this.socketTask.close();
+                this.isListening = false;
+                this.realTimeText = '';
+                this.isConnectionPending = false;
+            }, 500);
+        } else {
+            this.isListening = false;
+            if (this.socketTask) this.socketTask.close();
+            this.isConnectionPending = false;
+        }
     }
-    // #endif
   }
 };
 </script>
@@ -397,6 +429,11 @@ export default {
 .listening-icon {
   width: 64rpx;
   height: 64rpx;
+}
+
+.listening-icon-voice {
+    font-size: 56rpx;
+    color: #FFFFFF;
 }
 
 .listening-text {

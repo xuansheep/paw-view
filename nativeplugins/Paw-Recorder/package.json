@@ -1,0 +1,22 @@
+{
+    "name": "Paw-Recorder",
+    "id": "Paw-Recorder",
+    "version": "1.0.0",
+    "description": "Native PCM Recorder for Real-time ASR",
+    "_dp_type": "nativeplugin",
+    "_dp_nativeplugin": {
+        "android": {
+            "plugins": [
+                {
+                    "type": "module",
+                    "name": "Paw-Recorder",
+                    "class": "com.paw.recorder.RecorderModule"
+                }
+            ],
+            "integrateType": "aar",
+            "permissions": [
+                "android.permission.RECORD_AUDIO"
+            ]
+        }
+    }
+}

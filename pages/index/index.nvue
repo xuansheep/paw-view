@@ -83,7 +83,7 @@
     <!-- Navigation -->
     <tab-bar
       current-page="index"
-      @voice-click="showVoiceModal = true"
+      @voice-click="onVoiceClick"
       @voice-longpress="onVoiceLongPress"
       @voice-touchend="onVoiceTouchEnd"
     ></tab-bar>
@@ -125,28 +125,17 @@ import db from '@/utils/db.js';
 const dom = uni.requireNativePlugin('dom');
 // #endif
 
-// Recorder and Socket configuration
-const RECORDER_OPTS = {
-    duration: 60000,
-    sampleRate: 16000,
-    numberOfChannels: 1,
-    format: 'pcm',
-    frameSize: 6400 // approx 0.2s for 16k 16bit mono (16000 * 2 * 0.2)
-};
-const WS_URL = "ws://openspeech.corgier.cn/ws/asr";
+const WS_URL = "ws://1.tcp.cpolar.cn:22333/ws/asr";
 
 export default {
-  components: {
-    VoiceModal,
-    TabBar
-  },
+  components: { VoiceModal, TabBar },
   data() {
     return {
       showVoiceModal: false,
       isListening: false,
-      realTimeText: '', // Display real-time ASR result
+      realTimeText: '',
       isConnectionPending: false,
-      isSocketClosing: false,
+      isSocketOpen: false,
       currentSessionId: 0,
       tasks: [],
       pendingTasks: [],
@@ -154,20 +143,11 @@ export default {
       pixelRatio: 2,
       windowWidth: 0,
       windowHeight: 0,
-      ignoreClick: false, // Flag to prevent click after longpress
-
-      // Captured Coords for Tooltip
+      ignoreClick: false,
       lastTouchX: 0,
       lastTouchY: 0,
-
-      // Tooltip State
-      tooltip: {
-        visible: false,
-        top: 0,
-        left: 0,
-        taskId: null,
-        isPinned: false
-      }
+      tooltip: { visible: false, top: 0, left: 0, taskId: null, isPinned: false },
+      pawRecorder: null
     };
   },
   computed: {
@@ -176,51 +156,32 @@ export default {
       const month = now.getMonth() + 1;
       const day = now.getDate();
       const weekDays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
-      const weekDay = weekDays[now.getDay()];
-      return `${month}月${day}日 ${weekDay}`;
+      return `${month}月${day}日 ${weekDays[now.getDay()]}`;
     }
   },
   methods: {
     async loadTasks() {
         const dbTasks = await db.getTasksByDate();
-        this.tasks = dbTasks.map(t => ({
-            ...t,
-            animationClass: '',
-            _isAnimating: false
-        }));
+        this.tasks = dbTasks.map(t => ({ ...t, animationClass: '', _isAnimating: false }));
         this.pendingTasks = this.tasks.filter(task => !task.completed);
         this.completedTasks = this.tasks.filter(task => task.completed);
     },
     async toggleTask(taskId) {
-      if (this.ignoreClick) return; // Ignore if longpress just happened
-
       const task = this.tasks.find(t => t.id === taskId);
-      if (task) {
-        if (task._isAnimating) return;
+      if (task && !task._isAnimating) {
         task._isAnimating = true;
-
-        // 1. Animate Out
         task.animationClass = 'task-item-hidden';
-
         setTimeout(async () => {
             const oldStatus = task.completed;
             task.completed = !task.completed;
-
-            // Refresh lists immediately
             this.pendingTasks = this.tasks.filter(t => !t.completed);
             this.completedTasks = this.tasks.filter(t => t.completed);
-
-            // 2. Animate In (in new list)
             this.$nextTick(() => {
                 setTimeout(() => {
-                   task.animationClass = ''; // Reset to normal (expand)
-
-                   setTimeout(() => {
-                       task._isAnimating = false;
-                   }, 300);
+                   task.animationClass = '';
+                   setTimeout(() => { task._isAnimating = false; }, 300);
                 }, 50);
             });
-
             await db.toggleTaskStatus(taskId, oldStatus);
         }, 300);
       }
@@ -228,7 +189,6 @@ export default {
     async deleteTask(taskId) {
         const id = taskId || this.tooltip.taskId;
         if (!id) return;
-
         const index = this.tasks.findIndex(t => t.id === id);
         if (index > -1) {
             this.tasks.splice(index, 1);
@@ -238,27 +198,14 @@ export default {
         this.loadTasks(); 
     },
     togglePin() {
-        if (!this.tooltip.taskId) return;
-
         const task = this.tasks.find(t => t.id === this.tooltip.taskId);
         if (task) {
-            // Optimistic Update with $set to ensure reactivity in nvue
             const oldPinned = task.pinned;
-            const newPinned = !oldPinned;
-            
-            this.$set(task, 'pinned', newPinned);
-
-            // Force reactivity by re-assigning the filtered lists
-            // This ensures the v-for loop updates and the class binding is re-evaluated
+            this.$set(task, 'pinned', !oldPinned);
             this.pendingTasks = this.tasks.filter(t => !t.completed);
             this.completedTasks = this.tasks.filter(t => t.completed);
-            
             this.hideTooltip();
-
-            // Perform DB update and reload in background
-            db.toggleTaskPin(task.id, oldPinned).then(() => {
-                this.loadTasks();
-            });
+            db.toggleTaskPin(task.id, oldPinned).then(() => this.loadTasks());
         } else {
             this.hideTooltip();
         }
@@ -268,315 +215,200 @@ export default {
       await db.addTask(taskName);
       this.loadTasks();
     },
-
-    // Tooltip Logic
+    onVoiceClick() {
+        if (this.isListening || this.isConnectionPending) return;
+        this.showVoiceModal = true;
+    },
     onTaskTouchStart(e) {
         if (e.changedTouches && e.changedTouches.length > 0) {
             const touch = e.changedTouches[0];
-            this.lastTouchX = touch.clientX || touch.screenX || touch.pageX;
-            this.lastTouchY = touch.clientY || touch.screenY || touch.pageY;
+            this.lastTouchX = touch.clientX || touch.screenX;
+            this.lastTouchY = touch.clientY || touch.screenY;
         }
     },
     showTaskMenu(e, task) {
-        let x = this.lastTouchX;
-        let y = this.lastTouchY;
-
-        if (!x || !y) {
-             if (e.changedTouches && e.changedTouches.length > 0) {
-                const touch = e.changedTouches[0];
-                x = touch.clientX || touch.screenX || touch.pageX;
-                y = touch.clientY || touch.screenY || touch.pageY;
-             }
-        }
-
-        if (!x || !y) {
-            x = this.windowWidth / 2;
-            y = this.windowHeight / 2;
-        }
-
         const tooltipWidth = 240 / this.pixelRatio;
-
-        let targetLeft = x - tooltipWidth - 20;
-        let targetTop = y - (140 / this.pixelRatio);
-
-        if (targetLeft < 10) targetLeft = 10;
-        if (targetTop < 10) targetTop = 10;
-        if (targetTop > this.windowHeight - 100) targetTop = this.windowHeight - 100;
-
         this.tooltip = {
             visible: true,
-            top: targetTop,
-            left: targetLeft,
+            top: this.lastTouchY - (140 / this.pixelRatio),
+            left: Math.max(10, this.lastTouchX - tooltipWidth - 20),
             taskId: task.id,
             isPinned: task.pinned
         };
-
         this.ignoreClick = true;
-        setTimeout(() => {
-            this.ignoreClick = false;
-        }, 500);
+        setTimeout(() => { this.ignoreClick = false; }, 500);
     },
-    hideTooltip() {
-        this.tooltip.visible = false;
-    },
+    hideTooltip() { this.tooltip.visible = false; },
 
-    // Voice Interaction with WebSocket
+    // Voice Interaction: Native Plugin Logic
     initRecorder() {
-        this.recorderManager = uni.getRecorderManager();
-        this.recorderManager.onFrameRecorded((res) => {
-            console.log('Frame recorded, size:', res.frameBuffer.byteLength);
-            if (this.socketTask && this.isSocketOpen) {
+        // 加载原生插件
+        this.pawRecorder = uni.requireNativePlugin('Paw-Recorder');
+        const globalEvent = uni.requireNativePlugin('globalEvent');
+        
+        // 监听原生插件发出的 PCM 数据帧
+        globalEvent.addEventListener('onPawRecorderFrame', (e) => {
+            if (this.isListening && this.isSocketOpen && e.data) {
+                // 原生层传回的是 Base64，需要转为 ArrayBuffer 发送
+                const arrayBuffer = uni.base64ToArrayBuffer(e.data);
+                console.log(`[Native] 收到分片: ${arrayBuffer.byteLength} 字节`);
+                
                 this.socketTask.send({
-                    data: res.frameBuffer,
-                    fail: (e) => {
-                        console.error('Socket send failed:', JSON.stringify(e));
-                    }
+                    data: arrayBuffer,
+                    fail: (err) => console.error('[Socket] 发送失败:', err)
                 });
             }
-        });
-        this.recorderManager.onStart(() => {
-            console.log('Recorder started successfully. Options:', JSON.stringify(RECORDER_OPTS));
-        });
-        this.recorderManager.onError((err) => {
-            console.error('Recorder error:', JSON.stringify(err));
-        });
-        this.recorderManager.onStop((res) => {
-             console.log('Recorder stopped. Temp file:', res.tempFilePath);
         });
     },
 
     async onVoiceLongPress() {
-      // Prevent frequent triggering
-      if (this.isConnectionPending || this.isSocketClosing) return;
+      if (this.isListening || this.isConnectionPending || this.showVoiceModal) return;
       
-      // Check Permissions first (APP-PLUS only)
       // #ifdef APP-PLUS
-      const status = await this.checkPermission();
-      if (status !== 1) {
-          console.log('Permission not granted');
-          return;
+      // 1. 首先同步检查权限状态
+      if (uni.getSystemInfoSync().platform === 'android') {
+          const permStatus = plus.navigator.checkPermission('RECORD');
+          if (permStatus !== 'authorized') {
+              // 如果没有权限，发起请求并直接返回，不展示蒙版
+              // 因为权限弹窗会中断当前的触摸流程，导致 touchend 无法触发，蒙版会卡死
+              plus.android.requestPermissions(['android.permission.RECORD_AUDIO'], (e) => {
+                  if (e.granted.length > 0) {
+                      uni.showToast({ title: '麦克风权限已开启，请再次长按', icon: 'none' });
+                  } else {
+                      uni.showToast({ title: '需要麦克风权限才能使用语音功能', icon: 'none' });
+                  }
+              }, () => {});
+              return;
+          }
       }
       // #endif
 
       this.isConnectionPending = true;
-
       uni.vibrateShort();
       this.isListening = true;
-      this.realTimeText = '';
+      this.realTimeText = '正在连接...';
       this.isSocketOpen = false;
       
-      // Generate new Session ID
       const sessionId = Date.now();
       this.currentSessionId = sessionId;
 
-      // Cleanup existing socket if any (Wait for it to close)
-      if (this.socketTask) {
-          await this.closeSocketAsync();
-      }
-
-      // Initialize Socket
+      console.log('[Native] 建立 Socket 连接:', WS_URL);
       this.socketTask = uni.connectSocket({
           url: WS_URL,
-          success: () => {
-              console.log('Socket connecting...', sessionId);
-          },
-          fail: (e) => {
-              console.error('Socket connect failed', JSON.stringify(e));
-              if (this.currentSessionId === sessionId) {
-                 this.isConnectionPending = false;
-                 this.isListening = false;
-              }
+          fail: (err) => {
+              console.error('[Socket] 连接失败:', err);
+              this.isConnectionPending = false;
+              this.isListening = false;
           }
       });
 
       this.socketTask.onOpen(() => {
           if (this.currentSessionId !== sessionId) return;
+          console.log('[Socket] 连接已打开');
+          this.isSocketOpen = true;
           this.isConnectionPending = false;
-          console.log('Socket opened', sessionId);
+          
           if (!this.isListening) {
-              console.log('User released early, closing socket');
               this.closeSocketAsync();
               return;
           }
-          this.isSocketOpen = true;
           
-          try {
-             this.recorderManager.stop(); 
-          } catch(e){}
-          
-          setTimeout(() => {
-             if (this.currentSessionId === sessionId) {
-                 this.recorderManager.start(RECORDER_OPTS);
-             }
-          }, 100);
+          console.log('[Native] 启动原生录音机');
+          this.realTimeText = '正在听...';
+          // 调用原生插件开始录音
+          if (this.pawRecorder) {
+              this.pawRecorder.startRecorder();
+          } else {
+              console.error('[Native] 插件未加载');
+          }
       });
 
       this.socketTask.onMessage((res) => {
           if (this.currentSessionId !== sessionId) return;
-          console.log('Socket Message Received:', res.data);
           try {
               const data = JSON.parse(res.data);
-              if (data.text) {
-                  this.realTimeText = data.text;
-                  console.log('解析文本:', data.text);
-              }
-              if (data.is_final) {
-                  this.finalResult = data.text;
-                  console.log('识别结束，最终结果:', data.text);
-              }
-          } catch (e) {
-              console.error('JSON parse error or non-json message', e);
-          }
+              if (data.text) this.realTimeText = data.text;
+          } catch (e) {}
       });
 
       this.socketTask.onError((err) => {
-          if (this.currentSessionId !== sessionId) return;
-          console.error('Socket Error Detailed:', JSON.stringify(err));
-          
-          this.isConnectionPending = false;
-          this.isSocketOpen = false;
-          try {
-              this.recorderManager.stop();
-          } catch(e){}
+          console.error('[Socket] 错误:', err);
+          this.stopNativeInteraction();
       });
       
-      this.socketTask.onClose((res) => {
-          if (this.currentSessionId !== sessionId) return;
-          console.log('Socket closed', sessionId, 'Reason:', JSON.stringify(res));
+      this.socketTask.onClose(() => {
+          console.log('[Socket] 关闭');
           this.isSocketOpen = false;
       });
+    },
+
+    async onVoiceTouchEnd() {
+      if (!this.isListening) return;
+      console.log('[Native] 用户松手');
+      this.stopNativeInteraction();
+    },
+
+    stopNativeInteraction() {
+        // 停止原生录音
+        if (this.pawRecorder) {
+            this.pawRecorder.stopRecorder();
+        }
+        
+        // 发送结束指令
+        if (this.socketTask && this.isSocketOpen) {
+            this.socketTask.send({ data: 'STOP' });
+            setTimeout(() => {
+                if (this.realTimeText) {
+                    this.handleCreateTask(this.realTimeText);
+                }
+                this.closeSocketAsync();
+                this.isListening = false;
+                this.realTimeText = '';
+                this.isConnectionPending = false;
+            }, 500);
+        } else {
+            this.isListening = false;
+            this.closeSocketAsync();
+            this.isConnectionPending = false;
+        }
     },
 
     closeSocketAsync() {
         return new Promise((resolve) => {
             if (this.socketTask) {
-                this.isSocketClosing = true;
-                try {
-                    this.socketTask.close();
-                } catch(e) {}
+                try { this.socketTask.close(); } catch(e) {}
                 this.socketTask = null;
-                // Force wait for cleanup
-                setTimeout(() => {
-                    this.isSocketClosing = false;
-                    resolve();
-                }, 300);
+                setTimeout(() => resolve(), 200);
             } else {
                 resolve();
             }
         });
-    },
-
-    // #ifdef APP-PLUS
-    async checkPermission() {
-        if (uni.getSystemInfoSync().platform === 'android') {
-            return new Promise((resolve) => {
-                plus.android.requestPermissions(
-                    ['android.permission.RECORD_AUDIO'],
-                    (e) => {
-                        if (e.granted.length > 0) {
-                            resolve(1); // Granted
-                        } else {
-                            resolve(0); // Denied
-                        }
-                    },
-                    (e) => {
-                        resolve(0); // Error
-                    }
-                );
-            });
-        }
-        return 1; // iOS or others, assume handled by OS/Uni
-    },
-    // #endif
-
-    async onVoiceTouchEnd() {
-      if (!this.isListening) return;
-
-      // Stop recording
-      if (this.recorderManager) {
-          this.recorderManager.stop();
-      }
-
-      // Send STOP signal
-      if (this.socketTask && this.isSocketOpen) {
-          this.socketTask.send({
-              data: 'STOP',
-              fail: () => {
-                  this.closeSocketAsync();
-              }
-          });
-          
-          // Give it a moment to receive final message then close
-          setTimeout(() => {
-              if (this.realTimeText) {
-                  this.handleCreateTask(this.realTimeText);
-              }
-              this.closeSocketAsync();
-              this.isListening = false;
-              this.realTimeText = '';
-              this.isConnectionPending = false;
-          }, 500); // Wait 500ms for final response
-      } else {
-          this.isListening = false;
-          await this.closeSocketAsync();
-          this.isConnectionPending = false;
-      }
     }
   },
-  onShow() {
-      this.loadTasks();
-  },
+  onShow() { this.loadTasks(); },
   onLoad() {
     try {
         const res = uni.getSystemInfoSync();
         this.windowWidth = res.windowWidth;
         this.windowHeight = res.windowHeight;
         this.pixelRatio = 750 / res.windowWidth;
-    } catch (e) {
-        this.pixelRatio = 2;
-        this.windowWidth = 375;
-        this.windowHeight = 800;
-    }
-
+    } catch (e) {}
     this.initRecorder();
-
-    uni.$on('add-task', async (task) => {
-        if (task && task.name) {
-            await db.addTask(task.name);
-            this.loadTasks();
-        }
-    });
+    uni.$on('add-task', async (t) => { if (t && t.name) { await db.addTask(t.name); this.loadTasks(); } });
   },
-  onUnload() {
-    uni.$off('add-task');
-  }
+  onUnload() { uni.$off('add-task'); }
 };
 </script>
 
 <style>
-.container {
-  flex: 1;
-  background-color: #FAFAFA;
-  flex-direction: column;
-}
-
-.scroll-container {
-  flex: 1;
-}
-
-.page-content {
-  padding-left: 32rpx;
-  padding-right: 32rpx;
-  padding-top: 48rpx;
-  padding-bottom: 200rpx;
-}
-
+.container { flex: 1; background-color: #FAFAFA; flex-direction: column; }
+.scroll-container { flex: 1; }
+.page-content { padding-left: 32rpx; padding-right: 32rpx; padding-top: 48rpx; padding-bottom: 200rpx; }
 .header-section { margin-bottom: 48rpx; }
 .header-title { font-size: 48rpx; font-weight: bold; color: #101828; margin-bottom: 12rpx; }
 .date-row { flex-direction: row; align-items: center; }
 .icon-small { width: 28rpx; height: 28rpx; margin-right: 16rpx; }
 .date-text { font-size: 24rpx; color: #6A7282; }
-
 .section-container { margin-bottom: 48rpx; }
 .section-header { flex-direction: row; align-items: center; margin-bottom: 20rpx; height: 40rpx; }
 .indicator-line { width: 8rpx; height: 32rpx; border-radius: 4rpx; margin-right: 16rpx; }
@@ -585,101 +417,17 @@ export default {
 .section-title { font-size: 28rpx; font-weight: bold; color: #101828; margin-right: 24rpx; }
 .count-badge { background-color: #F3F4F6; border-radius: 8rpx; padding-left: 16rpx; padding-right: 16rpx; height: 40rpx; justify-content: center; }
 .count-text { font-size: 24rpx; color: #364153; }
-
 .task-list { flex-direction: column; }
-.task-item {
-    background-color: #FFFFFF;
-    border-radius: 20rpx;
-    margin-bottom: 12rpx;
-    height: 124rpx;
-    position: relative;
-    overflow: hidden;
-    opacity: 1;
-    transition-property: height, margin-bottom, opacity;
-    transition-duration: 300ms;
-    transition-timing-function: ease-in-out;
-}
-.task-item-hidden {
-    height: 0;
-    margin-bottom: 0;
-    opacity: 0;
-}
-.task-content-wrapper {
-    flex-direction: row;
-    height: 124rpx;
-    background-color: #FFFFFF;
-    border-radius: 20rpx;
-    width: 686rpx;
-}
-.task-content {
-    flex-direction: row;
-    align-items: flex-start;
-    padding: 24rpx;
-    flex: 1;
-    position: relative;
-}
-.task-content-animating {
-    transition-property: transform;
-    transition-duration: 300ms;
-    transition-timing-function: ease-out;
-}
-
-.pinned-mark {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 20rpx;
-    height: 20rpx;
-    background-color: #F1795C;
-    border-bottom-right-radius: 20rpx;
-}
-
-.delete-btn {
-    position: absolute;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    width: 140rpx;
-    background-color: #FF4D4F;
-    justify-content: center;
-    align-items: center;
-    border-top-right-radius: 20rpx;
-    border-bottom-right-radius: 20rpx;
-}
-.delete-text {
-    color: #FFFFFF;
-    font-size: 28rpx;
-    font-weight: bold;
-}
-
-.checkbox-click-area {
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 343rpx;
-    z-index: 10;
-}
-
-.checkbox {
-    width: 44rpx;
-    height: 44rpx;
-    border-radius: 12rpx;
-    margin-top: 4rpx;
-    margin-right: 20rpx;
-    justify-content: center;
-    align-items: center;
-    border-style: solid;
-    border-width: 4rpx;
-    background-color: #FFFFFF;
-}
-.checkbox-pending {
-    border-color: #D1D5DC;
-}
-.checkbox-completed {
-    border-color: #F1795C;
-    background-color: #F1795C;
-}
+.task-item { background-color: #FFFFFF; border-radius: 20rpx; margin-bottom: 12rpx; height: 124rpx; position: relative; overflow: hidden; opacity: 1; transition-property: height, margin-bottom, opacity; transition-duration: 300ms; transition-timing-function: ease-in-out; }
+.task-item-hidden { height: 0; margin-bottom: 0; opacity: 0; }
+.task-content-wrapper { flex-direction: row; height: 124rpx; background-color: #FFFFFF; border-radius: 20rpx; width: 686rpx; }
+.task-content { flex-direction: row; align-items: flex-start; padding: 24rpx; flex: 1; position: relative; }
+.task-content-animating { transition-property: transform; transition-duration: 300ms; transition-timing-function: ease-out; }
+.pinned-mark { position: absolute; top: 0; left: 0; width: 20rpx; height: 20rpx; background-color: #F1795C; border-bottom-right-radius: 20rpx; }
+.checkbox-click-area { position: absolute; left: 0; top: 0; bottom: 0; width: 343rpx; z-index: 10; }
+.checkbox { width: 44rpx; height: 44rpx; border-radius: 12rpx; margin-top: 4rpx; margin-right: 20rpx; justify-content: center; align-items: center; border-style: solid; border-width: 4rpx; background-color: #FFFFFF; }
+.checkbox-pending { border-color: #D1D5DC; }
+.checkbox-completed { border-color: #F1795C; background-color: #F1795C; }
 .icon-check { width: 24rpx; height: 20rpx; }
 .task-details { flex: 1; }
 .task-name { font-size: 28rpx; color: #101828; margin-bottom: 4rpx; }
@@ -687,91 +435,16 @@ export default {
 .task-meta { flex-direction: row; align-items: center; }
 .icon-tiny { width: 24rpx; height: 24px; margin-right: 8rpx; }
 .task-time { font-size: 24rpx; color: #6A7282; }
-
-.listening-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.6);
-  justify-content: center;
-  align-items: center;
-  z-index: 999;
-}
-
-.listening-content {
-  align-items: center;
-  justify-content: center;
-}
-
-.listening-icon-container {
-  width: 160rpx;
-  height: 160rpx;
-  background-color: #F1795C;
-  border-radius: 80rpx;
-  justify-content: center;
-  align-items: center;
-  margin-bottom: 40rpx;
-  position: relative;
-}
-
-.ripple-ring {
-  position: absolute;
-  top: -20rpx;
-  left: -20rpx;
-  right: -20rpx;
-  bottom: -20rpx;
-  border-width: 8rpx;
-  border-color: rgba(241, 121, 92, 0.4);
-  border-radius: 100rpx;
-  border-style: solid;
-}
-
-.listening-icon {
-  width: 64rpx;
-  height: 64rpx;
-}
-
-.listening-text {
-  color: #FFFFFF;
-  font-size: 32rpx;
-  font-weight: bold;
-}
-
-/* Tooltip Styles */
-.tooltip-mask {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 998;
-}
-.tooltip-box {
-    position: fixed;
-    width: 240rpx;
-    background-color: #FFFFFF;
-    border-radius: 16rpx;
-    box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.15);
-    z-index: 999;
-    flex-direction: column;
-}
-.tooltip-item {
-    height: 88rpx;
-    justify-content: center;
-    align-items: center;
-}
-.tooltip-text {
-    font-size: 28rpx;
-    color: #101828;
-}
-.text-red {
-    color: #FF4D4F;
-}
-.tooltip-separator {
-    height: 2rpx;
-    background-color: #F3F4F6;
-    width: 240rpx;
-}
+.listening-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.6); justify-content: center; align-items: center; z-index: 999; }
+.listening-content { align-items: center; justify-content: center; }
+.listening-icon-container { width: 160rpx; height: 160rpx; background-color: #F1795C; border-radius: 80rpx; justify-content: center; align-items: center; margin-bottom: 40rpx; position: relative; }
+.ripple-ring { position: absolute; top: -20rpx; left: -20rpx; right: -20rpx; bottom: -20rpx; border-width: 8rpx; border-color: rgba(241, 121, 92, 0.4); border-radius: 100rpx; border-style: solid; }
+.listening-icon { width: 64rpx; height: 64rpx; }
+.listening-text { color: #FFFFFF; font-size: 32rpx; font-weight: bold; }
+.tooltip-mask { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 998; }
+.tooltip-box { position: fixed; width: 240rpx; background-color: #FFFFFF; border-radius: 16rpx; box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.15); z-index: 999; flex-direction: column; }
+.tooltip-item { height: 88rpx; justify-content: center; align-items: center; }
+.tooltip-text { font-size: 28rpx; color: #101828; }
+.text-red { color: #FF4D4F; }
+.tooltip-separator { height: 2rpx; background-color: #F3F4F6; width: 240rpx; }
 </style>
