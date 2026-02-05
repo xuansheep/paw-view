@@ -661,3 +661,29 @@ asr服务显示已建立连接，但是没有收到数据
 
 ## Model
 确认这是一个标准的 **uni-app** 项目（基于 `pages.json`、`.nvue` 文件及标准的目录结构）。
+
+## User
+读取根目录的 chat.md 文件，理解项目内容与历史对话
+
+## Model
+已读取并理解 `chat.md` 中的历史记录。项目目前已完成核心任务管理、SQLite 数据库集成、原生 Android 录音插件开发以及基于 WebSocket 的实时 ASR 语音识别功能。
+
+## User
+将asr服务地址改为 ws://openspeech.corgier.cn/ws/asr，使用公共变量表示
+
+## Model
+*(Created `utils/config.js` and updated `pages/index/index.nvue`, `pages/profile/profile.nvue`)*
+已将 ASR 地址提取至 `utils/config.js` 并更新了所有相关引用。
+
+## User
+现在asr服务已经可以正常调用并使用了，移除相关的调试日志
+
+## Model
+*(Updated `pages/index/index.nvue` and `pages/profile/profile.nvue`)*
+已移除所有 `[Native]` 和 `[Socket]` 相关的调试日志，清理了控制台输出。
+
+## User
+将本次会话的对话记录追加保存到项目根目录的 chat.md 文件中
+
+## Model
+*(Updating chat.md...)*

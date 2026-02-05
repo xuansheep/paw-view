@@ -120,12 +120,11 @@
 import VoiceModal from '@/components/VoiceModal.nvue';
 import TabBar from '@/components/TabBar.nvue';
 import db from '@/utils/db.js';
+import { ASR_WS_URL } from '@/utils/config.js';
 
 // #ifdef APP-NVUE
 const dom = uni.requireNativePlugin('dom');
 // #endif
-
-const WS_URL = "ws://1.tcp.cpolar.cn:22333/ws/asr";
 
 export default {
   components: { VoiceModal, TabBar },
@@ -251,11 +250,9 @@ export default {
             if (this.isListening && this.isSocketOpen && e.data) {
                 // 原生层传回的是 Base64，需要转为 ArrayBuffer 发送
                 const arrayBuffer = uni.base64ToArrayBuffer(e.data);
-                console.log(`[Native] 收到分片: ${arrayBuffer.byteLength} 字节`);
                 
                 this.socketTask.send({
-                    data: arrayBuffer,
-                    fail: (err) => console.error('[Socket] 发送失败:', err)
+                    data: arrayBuffer
                 });
             }
         });
@@ -292,11 +289,9 @@ export default {
       const sessionId = Date.now();
       this.currentSessionId = sessionId;
 
-      console.log('[Native] 建立 Socket 连接:', WS_URL);
       this.socketTask = uni.connectSocket({
-          url: WS_URL,
+          url: ASR_WS_URL,
           fail: (err) => {
-              console.error('[Socket] 连接失败:', err);
               this.isConnectionPending = false;
               this.isListening = false;
           }
@@ -304,7 +299,6 @@ export default {
 
       this.socketTask.onOpen(() => {
           if (this.currentSessionId !== sessionId) return;
-          console.log('[Socket] 连接已打开');
           this.isSocketOpen = true;
           this.isConnectionPending = false;
           
@@ -313,13 +307,10 @@ export default {
               return;
           }
           
-          console.log('[Native] 启动原生录音机');
           this.realTimeText = '正在听...';
           // 调用原生插件开始录音
           if (this.pawRecorder) {
               this.pawRecorder.startRecorder();
-          } else {
-              console.error('[Native] 插件未加载');
           }
       });
 
@@ -332,19 +323,16 @@ export default {
       });
 
       this.socketTask.onError((err) => {
-          console.error('[Socket] 错误:', err);
           this.stopNativeInteraction();
       });
       
       this.socketTask.onClose(() => {
-          console.log('[Socket] 关闭');
           this.isSocketOpen = false;
       });
     },
 
     async onVoiceTouchEnd() {
       if (!this.isListening) return;
-      console.log('[Native] 用户松手');
       this.stopNativeInteraction();
     },
 
