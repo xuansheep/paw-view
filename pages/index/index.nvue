@@ -118,7 +118,7 @@
 import VoiceModal from '@/components/VoiceModal.nvue';
 import TabBar from '@/components/TabBar.nvue';
 import db from '@/utils/db.js';
-import { ASR_WS_URL } from '@/utils/config.js';
+import { ASR_WS_URL, CHAT_API_URL } from '@/utils/config.js';
 
 // #ifdef APP-NVUE
 const dom = uni.requireNativePlugin('dom');
@@ -130,6 +130,7 @@ export default {
     return {
       showVoiceModal: false,
       isListening: false,
+      isProcessingAI: false,
       realTimeText: '',
       isConnectionPending: false,
       isSocketOpen: false,
@@ -213,6 +214,55 @@ export default {
       await db.addTask(taskName);
       this.loadTasks();
     },
+    async processAITask(rawText) {
+        if (!rawText) return;
+        this.isProcessingAI = true;
+        uni.showLoading({ title: 'AI 处理中...' });
+        
+        uni.request({
+            url: CHAT_API_URL,
+            method: 'POST',
+            data: {
+                text: rawText,
+                prompt_key: 'task'
+            },
+            success: async (res) => {
+                uni.hideLoading();
+                if (res.data && res.data.result) {
+                    try {
+                        const taskList = JSON.parse(res.data.result);
+                        if (Array.isArray(taskList) && taskList.length > 0) {
+                            for (const item of taskList) {
+                                let date = null;
+                                let time = null;
+                                if (item.datetime && item.datetime.includes(' ')) {
+                                    const parts = item.datetime.split(' ');
+                                    date = parts[0];
+                                    time = parts[1];
+                                }
+                                await db.addTask(item.content || item.name, date, time);
+                            }
+                            this.loadTasks();
+                            uni.showToast({ title: `成功添加 ${taskList.length} 个任务`, icon: 'success' });
+                        } else {
+                            await this.handleCreateTask(rawText);
+                        }
+                    } catch (e) {
+                        await this.handleCreateTask(rawText);
+                    }
+                } else {
+                    await this.handleCreateTask(rawText);
+                }
+            },
+            fail: async (err) => {
+                uni.hideLoading();
+                await this.handleCreateTask(rawText);
+            },
+            complete: () => {
+                this.isProcessingAI = false;
+            }
+        });
+    },
     onVoiceClick() {
         if (this.isListening || this.isConnectionPending) return;
         this.showVoiceModal = true;
@@ -261,12 +311,9 @@ export default {
       if (this.isListening || this.isConnectionPending || this.showVoiceModal) return;
       
       // #ifdef APP-PLUS
-      // 1. 首先同步检查权限状态
       if (uni.getSystemInfoSync().platform === 'android') {
           const permStatus = plus.navigator.checkPermission('RECORD');
           if (permStatus !== 'authorized') {
-              // 如果没有权限，发起请求并直接返回，不展示蒙版
-              // 因为权限弹窗会中断当前的触摸流程，导致 touchend 无法触发，蒙版会卡死
               plus.android.requestPermissions(['android.permission.RECORD_AUDIO'], (e) => {
                   if (e.granted.length > 0) {
                       uni.showToast({ title: '麦克风权限已开启，请再次长按', icon: 'none' });
@@ -347,7 +394,7 @@ export default {
             setTimeout(() => {
                 const finalTaskName = (this.realTimeText || '').trim();
                 if (finalTaskName && finalTaskName !== '正在听...' && finalTaskName !== '正在连接...') {
-                    this.handleCreateTask(finalTaskName);
+                    this.processAITask(finalTaskName);
                 } else {
                     uni.showToast({ title: '没有听到讲话', icon: 'none' });
                 }

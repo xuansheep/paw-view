@@ -625,7 +625,7 @@ asr服务显示已建立连接，但是没有收到数据
 增加了极详尽的日志追踪，并将 `recorderManager.start()` 延迟至 Socket 打开后 200ms，确保数据流稳定性。
 
 ## User
-日志显示 Recorder 启动成功但没有分片输出
+日志显示 Recorder 启动成功 but 没有分片输出
 
 ## Model
 *(Updated `pages/index/index.nvue` and `pages/profile/profile.nvue`)*
@@ -802,3 +802,20 @@ asr服务显示已建立连接，但是没有收到数据
 ## Model
 *(Updated `components/Calendar.nvue`)*
 重组了 Modal 层级结构，通过 `@click.stop` 阻止事件冒泡，并采用了更稳定的网格化月份选择设计（3x4 布局），彻底解决了遮挡和交互失效问题。
+
+## User
+现在asr服务返回内容且不为空后，不要直接创建任务，现调用一个新接口：http://openseed.corgier.cn/chat，请求方式为post，参数为{"text": "", "prompt_key": "task"}，将asr返回的不为空的内容放在参数中的text值中进行请求，解析返回结果并将其添加为任务
+
+## Model
+*(Updated `utils/config.js`, `utils/db.js`, `pages/index/index.nvue`, and `pages/profile/profile.nvue`)*
+集成了 AI 任务分发逻辑：
+1.  **新接口接入**：配置了 `CHAT_API_URL` 并实现了 POST 请求。
+2.  **智能解析**：系统现在会自动将语音转写文字发送给 AI 接口，解析出包含具体日期和时间的任务列表（`datetime`, `content`）。
+3.  **多任务支持**：支持一次性识别并创建多个跨天任务，并根据 AI 给出的时间精准分发到数据库。
+
+## User
+将初始化任务“锻炼30分钟”改为“👋 点击我来完成任务”
+
+## Model
+*(Updated `utils/db.js`)*
+已更新演示任务文本，并引入了基于 `uni.setStorageSync` 的**持久化锁**机制，确保在 `.vue` 和 `.nvue` 多运行环境下，演示任务绝对只被初始化一次，且在手动清除数据后能正确重置。

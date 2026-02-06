@@ -99,7 +99,7 @@ import VoiceModal from '@/components/VoiceModal.nvue';
 import TabBar from '@/components/TabBar.nvue';
 import Calendar from '@/components/Calendar.nvue';
 import db from '@/utils/db.js';
-import { ASR_WS_URL } from '@/utils/config.js';
+import { ASR_WS_URL, CHAT_API_URL } from '@/utils/config.js';
 
 // #ifdef APP-NVUE
 const dom = uni.requireNativePlugin('dom');
@@ -177,6 +177,53 @@ export default {
       await db.addTask(taskName);
       this.showVoiceModal = false;
       uni.redirectTo({ url: '/pages/index/index' });
+    },
+    async processAITask(rawText) {
+        if (!rawText) return;
+        uni.showLoading({ title: 'AI 处理中...' });
+        
+        uni.request({
+            url: CHAT_API_URL,
+            method: 'POST',
+            data: {
+                text: rawText,
+                prompt_key: 'task'
+            },
+            success: async (res) => {
+                uni.hideLoading();
+                if (res.data && res.data.result) {
+                    try {
+                        const taskList = JSON.parse(res.data.result);
+                        if (Array.isArray(taskList) && taskList.length > 0) {
+                            for (const item of taskList) {
+                                let date = null;
+                                let time = null;
+                                if (item.datetime && item.datetime.includes(' ')) {
+                                    const parts = item.datetime.split(' ');
+                                    date = parts[0];
+                                    time = parts[1];
+                                }
+                                await db.addTask(item.content || item.name, date, time);
+                            }
+                            uni.showToast({ title: `成功添加 ${taskList.length} 个任务`, icon: 'success' });
+                            setTimeout(() => {
+                                uni.redirectTo({ url: '/pages/index/index' });
+                            }, 1000);
+                        } else {
+                            await this.handleCreateTask(rawText);
+                        }
+                    } catch (e) {
+                        await this.handleCreateTask(rawText);
+                    }
+                } else {
+                    await this.handleCreateTask(rawText);
+                }
+            },
+            fail: async (err) => {
+                uni.hideLoading();
+                await this.handleCreateTask(rawText);
+            }
+        });
     },
     onVoiceClick() {
         if (this.isListening || this.isConnectionPending) return;
@@ -284,7 +331,7 @@ export default {
             setTimeout(() => {
                 const finalTaskName = (this.realTimeText || '').trim();
                 if (finalTaskName && finalTaskName !== '正在听...' && finalTaskName !== '正在连接...') {
-                    this.handleCreateTask(finalTaskName);
+                    this.processAITask(finalTaskName);
                 } else {
                     uni.showToast({ title: '没有听到讲话', icon: 'none' });
                 }

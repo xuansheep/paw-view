@@ -88,6 +88,34 @@ const selectSQL = (sql) => {
     });
 };
 
+// Seed initial data if table is empty
+const seedInitialData = async () => {
+    // Use persistent storage as a cross-environment lock
+    if (uni.getStorageSync('db_initial_seeded')) return;
+    
+    try {
+        const res = await selectSQL("SELECT count(*) as count FROM tasks");
+        if (res && res[0].count === 0) {
+            console.log("Seeding initial data...");
+            const today = getTodayDate();
+            const time = getNowTime();
+            const timestamp = Date.now();
+            const insertSql = `
+                INSERT INTO tasks (name, time, completed, pinned, date, created_at)
+                VALUES ('👋 点击我来完成任务', '${time}', 0, 0, '${today}', ${timestamp})
+            `;
+            await executeSQL(insertSql);
+            // Mark as seeded persistently
+            uni.setStorageSync('db_initial_seeded', true);
+        } else if (res && res[0].count > 0) {
+            // Even if we didn't insert, if there is data, mark as seeded
+            uni.setStorageSync('db_initial_seeded', true);
+        }
+    } catch (e) {
+        console.error('Seeding error:', e);
+    }
+};
+
 // Initialize Database
 let dbReadyPromise = null;
 
@@ -120,21 +148,10 @@ const initDB = async () => {
                 await executeSQL("ALTER TABLE tasks ADD COLUMN pinned INTEGER DEFAULT 0");
             }
             
-            // Check if we need to seed initial data
-            const res = await selectSQL("SELECT count(*) as count FROM tasks");
-            if (res && res[0].count === 0) {
-                console.log("Seeding initial data...");
-                const today = getTodayDate();
-                const time = getNowTime();
-                const timestamp = Date.now();
-                const insertSql = `
-                    INSERT INTO tasks (name, time, completed, pinned, date, created_at)
-                    VALUES ('锻炼30分钟', '${time}', 0, 0, '${today}', ${timestamp})
-                `;
-                await executeSQL(insertSql);
-            }
+            await seedInitialData();
         } catch (e) {
             console.error('Init DB Error:', e);
+            dbReadyPromise = null; // Allow retry on failure
             throw e;
         }
     })();
@@ -144,24 +161,22 @@ const initDB = async () => {
 
 // API Methods
 
-const addTask = async (name) => {
+const addTask = async (name, date, time) => {
     await initDB();
-    const today = getTodayDate();
-    const time = getNowTime();
+    const targetDate = date || getTodayDate();
+    const targetTime = time || getNowTime();
     const timestamp = Date.now();
     const sql = `
         INSERT INTO tasks (name, time, completed, pinned, date, created_at)
-        VALUES ('${name}', '${time}', 0, 0, '${today}', ${timestamp})
+        VALUES ('${name}', '${targetTime}', 0, 0, '${targetDate}', ${timestamp})
     `;
     await executeSQL(sql);
-    // Return the inserted item (fetching last id is safer but let's assume success)
-    // To be precise we can query back, but for UI speed we construct the object.
     return {
         name,
-        time,
+        time: targetTime,
         completed: false,
         pinned: 0,
-        date: today
+        date: targetDate
     };
 };
 
@@ -205,6 +220,9 @@ const clearAllData = async () => {
     await initDB();
     const sql = `DELETE FROM tasks`;
     await executeSQL(sql);
+    // Reset the persistent lock
+    uni.removeStorageSync('db_initial_seeded');
+    await seedInitialData();
 };
 
 const getProfileStats = async () => {
