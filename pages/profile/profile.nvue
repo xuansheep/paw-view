@@ -65,37 +65,8 @@
           </view>
         </view>
 
-        <!-- Calendar Section -->
-        <view class="calendar-section">
-          <view class="calendar-header">
-             <text class="icon-calendar iconfont">&#xe608;</text>
-             <text class="calendar-title">使用日历</text>
-          </view>
-          <text class="calendar-month">{{ currentMonthStr }}</text>
-          <view class="week-days">
-            <text class="day-label">日</text><text class="day-label">一</text><text class="day-label">二</text><text class="day-label">三</text><text class="day-label">四</text><text class="day-label">五</text><text class="day-label">六</text>
-          </view>
-          <view class="calendar-grid">
-            <view class="grid-row" v-for="(row, rowIndex) in calendarRows" :key="rowIndex">
-              <view 
-                  class="day-cell" 
-                  v-for="(day, colIndex) in row" 
-                  :key="colIndex"
-                  :class="[day.isToday ? 'bg-orange-solid' : (day.hasRecord ? 'bg-orange-light' : '')]"
-              >
-                  <text 
-                      class="day-text" 
-                      :class="[day.isToday ? 'text-white' : (day.hasRecord ? 'text-dark' : 'text-gray')]"
-                      v-if="!day.empty"
-                  >{{ day.day }}</text>
-              </view>
-            </view>
-          </view>
-          <view class="calendar-legend">
-             <view class="legend-item"><view class="legend-dot bg-orange-light"></view><text class="legend-text">有记录</text></view>
-             <view class="legend-item"><view class="legend-dot bg-orange"></view><text class="legend-text">今天</text></view>
-          </view>
-        </view>
+        <!-- Calendar Component -->
+        <calendar :activity-dates="activityDates"></calendar>
       </view>
     </scroll-view>
 
@@ -126,6 +97,7 @@
 <script>
 import VoiceModal from '@/components/VoiceModal.nvue';
 import TabBar from '@/components/TabBar.nvue';
+import Calendar from '@/components/Calendar.nvue';
 import db from '@/utils/db.js';
 import { ASR_WS_URL } from '@/utils/config.js';
 
@@ -144,7 +116,8 @@ const RECORDER_OPTS = {
 export default {
   components: {
     VoiceModal,
-    TabBar
+    TabBar,
+    Calendar
   },
   data() {
     return {
@@ -154,9 +127,8 @@ export default {
       isConnectionPending: false,
       isSocketOpen: false,
       currentSessionId: 0,
+      activityDates: [],
       stats: {},
-      calendarRows: [],
-      currentMonthStr: '',
       userInfo: {
           name: '爪印用户',
           avatar: '/static/avatar.png'
@@ -198,50 +170,7 @@ export default {
     async loadStats() {
         const statsData = await db.getProfileStats();
         this.stats = statsData;
-        this.generateCalendar(statsData.activityDates || []);
-    },
-    generateCalendar(activityDates) {
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = now.getMonth();
-        
-        this.currentMonthStr = `${year}年${month + 1}月`;
-        
-        const firstDay = new Date(year, month, 1).getDay();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        
-        const days = [];
-        
-        // Pad start
-        for(let i=0; i<firstDay; i++) {
-            days.push({ empty: true });
-        }
-        
-        // Days
-        for(let i=1; i<=daysInMonth; i++) {
-            const dateStr = `${year}-${(month+1).toString().padStart(2,'0')}-${i.toString().padStart(2,'0')}`;
-            const hasRecord = activityDates.includes(dateStr);
-            const isToday = (i === now.getDate());
-            
-            days.push({
-                day: i,
-                hasRecord,
-                isToday,
-                empty: false
-            });
-        }
-        
-        // Pad end
-        while(days.length % 7 !== 0) {
-            days.push({ empty: true });
-        }
-        
-        // Chunk rows
-        const rows = [];
-        for(let i=0; i<days.length; i+=7) {
-            rows.push(days.slice(i, i+7));
-        }
-        this.calendarRows = rows;
+        this.activityDates = statsData.activityDates || [];
     },
     async handleCreateTask(taskName) {
       if (!taskName) return;
@@ -353,8 +282,11 @@ export default {
         if (this.socketTask && this.isSocketOpen) {
             this.socketTask.send({ data: 'STOP' });
             setTimeout(() => {
-                if (this.realTimeText) {
-                    this.handleCreateTask(this.realTimeText);
+                const finalTaskName = (this.realTimeText || '').trim();
+                if (finalTaskName && finalTaskName !== '正在听...' && finalTaskName !== '正在连接...') {
+                    this.handleCreateTask(finalTaskName);
+                } else {
+                    uni.showToast({ title: '没有听到讲话', icon: 'none' });
                 }
                 if (this.socketTask) this.socketTask.close();
                 this.isListening = false;
@@ -434,48 +366,28 @@ export default {
 
 .container { flex: 1; background-color: #FAFAFA; flex-direction: column; }
 .scroll-container { flex: 1; }
-.page-content { padding-left: 32rpx; padding-right: 32rpx; padding-top: 40rpx; padding-bottom: 200rpx; }
-.profile-header { margin-bottom: 24rpx; }
-.page-title { font-size: 48rpx; font-weight: bold; color: #101828; margin-bottom: 24rpx; }
-.user-card { height: 144rpx; background-color: #FFFFFF; border-radius: 32rpx; padding: 24rpx; flex-direction: row; align-items: center; justify-content: space-between; }
+.page-content { padding-left: 32rpx; padding-right: 32rpx; padding-top: 24rpx; padding-bottom: 160rpx; }
+.profile-header { margin-bottom: 16rpx; }
+.page-title { font-size: 42rpx; font-weight: bold; color: #101828; margin-bottom: 16rpx; }
+.user-card { height: 130rpx; background-color: #FFFFFF; border-radius: 32rpx; padding: 22rpx; flex-direction: row; align-items: center; justify-content: space-between; }
 .user-left { flex-direction: row; align-items: center; }
-.avatar-container { width: 96rpx; height: 96rpx; border-radius: 48rpx; overflow: hidden; margin-right: 24rpx; }
-.avatar { width: 96rpx; height: 96rpx; border-radius: 48rpx; }
+.avatar-container { width: 88rpx; height: 88rpx; border-radius: 44rpx; overflow: hidden; margin-right: 22rpx; }
+.avatar { width: 88rpx; height: 88rpx; border-radius: 44rpx; }
 .user-info { justify-content: center; }
-.user-name { font-size: 32rpx; font-weight: bold; color: #101828; margin-bottom: 4rpx; }
-.user-days { font-size: 24rpx; color: #6A7282; }
-.settings-btn { padding: 10rpx 20rpx; background-color: #F5F7FA; border-radius: 24rpx; }
-.settings-text { font-size: 24rpx; color: #6A7282; font-weight: bold; }
-.stats-section { margin-bottom: 24rpx; }
-.stats-row { flex-direction: row; justify-content: space-between; margin-bottom: 16rpx; }
-.stats-card { width: 334rpx; height: 152rpx; background-color: #FFFFFF; border-radius: 28rpx; padding: 20rpx; }
-.stats-header { flex-direction: row; align-items: center; margin-bottom: 12rpx; }
-.icon-box { width: 48rpx; height: 48rpx; border-radius: 20rpx; justify-content: center; align-items: center; margin-right: 12rpx; }
+.user-name { font-size: 30rpx; font-weight: bold; color: #101828; margin-bottom: 3rpx; }
+.user-days { font-size: 22rpx; color: #6A7282; }
+.settings-btn { padding: 9rpx 18rpx; background-color: #F5F7FA; border-radius: 22rpx; }
+.settings-text { font-size: 22rpx; color: #6A7282; font-weight: bold; }
+.stats-section { margin-bottom: 16rpx; }
+.stats-row { flex-direction: row; justify-content: space-between; margin-bottom: 12rpx; }
+.stats-card { width: 334rpx; height: 138rpx; background-color: #FFFFFF; border-radius: 28rpx; padding: 18rpx; }
+.stats-header { flex-direction: row; align-items: center; margin-bottom: 10rpx; }
+.icon-box { width: 44rpx; height: 44rpx; border-radius: 18rpx; justify-content: center; align-items: center; margin-right: 12rpx; }
 .bg-blue { background-color: #4FC3F7; }
 .bg-green { background-color: #6BCF7F; }
 .bg-yellow { background-color: #FFD93D; }
 .bg-orange { background-color: #F1795C; }
-.icon-stat { width: 24rpx; height: 24rpx; }
-.stats-label { font-size: 24rpx; color: #6A7282; }
-.stats-value { font-size: 36rpx; font-weight: bold; color: #101828; }
-.calendar-section { background-color: #FFFFFF; border-radius: 32rpx; padding: 24rpx; height: 780rpx; }
-.calendar-header { flex-direction: row; align-items: center; margin-bottom: 16rpx; }
-.icon-calendar { font-size: 32rpx; color: #F1795C; margin-right: 16rpx; }
-.calendar-title { font-size: 28rpx; font-weight: bold; color: #101828; }
-.calendar-month { font-size: 24rpx; color: #4A5565; text-align: center; margin-bottom: 24rpx; }
-.week-days { flex-direction: row; justify-content: space-between; margin-bottom: 24rpx; }
-.day-label { width: 88rpx; text-align: center; font-size: 24rpx; color: #6A7282; }
-.calendar-grid { flex-direction: column; }
-.grid-row { flex-direction: row; justify-content: space-between; margin-bottom: 8rpx; }
-.day-cell { width: 88rpx; height: 88rpx; border-radius: 20rpx; justify-content: center; align-items: center; }
-.day-text { font-size: 24rpx; }
-.text-gray { color: #99A1AF; }
-.text-dark { color: #101828; }
-.text-white { color: #FFFFFF; }
-.bg-orange-light { background-color: #FFF5F0; }
-.bg-orange-solid { background-color: #F1795C; }
-.calendar-legend { flex-direction: row; justify-content: center; margin-top: 24rpx; border-top-width: 2rpx; border-top-color: #F3F4F6; padding-top: 24rpx; }
-.legend-item { flex-direction: row; align-items: center; margin-right: 32rpx; }
-.legend-dot { width: 20rpx; height: 20rpx; border-radius: 8rpx; margin-right: 12rpx; }
-.legend-text { font-size: 24rpx; color: #6A7282; }
+.icon-stat { width: 22rpx; height: 22rpx; }
+.stats-label { font-size: 22rpx; color: #6A7282; }
+.stats-value { font-size: 34rpx; font-weight: bold; color: #101828; }
 </style>

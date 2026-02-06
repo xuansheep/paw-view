@@ -28,8 +28,7 @@
                       @longpress="showTaskMenu($event, task)"
                       :style="{ transform: 'translateX(' + (task.offsetX || 0) + 'rpx)' }">
                     <view v-if="task.pinned" class="pinned-mark"></view>
-                    <view class="task-content">
-                        <view class="checkbox-click-area" @click.stop="toggleTask(task.id)"></view>
+                    <view class="task-content" @click="toggleTask(task.id)">
                         <view class="checkbox checkbox-pending"></view>
                         <view class="task-details">
                             <text class="task-name">{{ task.name }}</text>
@@ -60,8 +59,7 @@
                       @longpress="showTaskMenu($event, task)"
                       :style="{ transform: 'translateX(' + (task.offsetX || 0) + 'rpx)' }">
                     <view v-if="task.pinned" class="pinned-mark"></view>
-                    <view class="task-content">
-                        <view class="checkbox-click-area" @click.stop="toggleTask(task.id)"></view>
+                    <view class="task-content" @click="toggleTask(task.id)">
                         <view class="checkbox checkbox-completed">
                             <image class="icon-check" src="/static/check-icon.png" mode="aspectFit"></image>
                         </view>
@@ -166,6 +164,7 @@ export default {
         this.completedTasks = this.tasks.filter(task => task.completed);
     },
     async toggleTask(taskId) {
+      if (this.ignoreClick) return;
       const task = this.tasks.find(t => t.id === taskId);
       if (task && !task._isAnimating) {
         task._isAnimating = true;
@@ -346,8 +345,11 @@ export default {
         if (this.socketTask && this.isSocketOpen) {
             this.socketTask.send({ data: 'STOP' });
             setTimeout(() => {
-                if (this.realTimeText) {
-                    this.handleCreateTask(this.realTimeText);
+                const finalTaskName = (this.realTimeText || '').trim();
+                if (finalTaskName && finalTaskName !== '正在听...' && finalTaskName !== '正在连接...') {
+                    this.handleCreateTask(finalTaskName);
+                } else {
+                    uni.showToast({ title: '没有听到讲话', icon: 'none' });
                 }
                 this.closeSocketAsync();
                 this.isListening = false;
@@ -412,7 +414,6 @@ export default {
 .task-content { flex-direction: row; align-items: flex-start; padding: 24rpx; flex: 1; position: relative; }
 .task-content-animating { transition-property: transform; transition-duration: 300ms; transition-timing-function: ease-out; }
 .pinned-mark { position: absolute; top: 0; left: 0; width: 20rpx; height: 20rpx; background-color: #F1795C; border-bottom-right-radius: 20rpx; }
-.checkbox-click-area { position: absolute; left: 0; top: 0; bottom: 0; width: 343rpx; z-index: 10; }
 .checkbox { width: 44rpx; height: 44rpx; border-radius: 12rpx; margin-top: 4rpx; margin-right: 20rpx; justify-content: center; align-items: center; border-style: solid; border-width: 4rpx; background-color: #FFFFFF; }
 .checkbox-pending { border-color: #D1D5DC; }
 .checkbox-completed { border-color: #F1795C; background-color: #F1795C; }

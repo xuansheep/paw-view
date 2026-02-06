@@ -683,7 +683,122 @@ asr服务显示已建立连接，但是没有收到数据
 已移除所有 `[Native]` 和 `[Socket]` 相关的调试日志，清理了控制台输出。
 
 ## User
-将本次会话的对话记录追加保存到项目根目录的 chat.md 文件中
+长按“语音对话”讲话时，不要把“正在听...”作为任务内容，如果asr服务返回的数据为空，则不要创建任务，提示用户没有听到讲话
 
 ## Model
-*(Updating chat.md...)*
+*(Updated `pages/index/index.nvue` and `pages/profile/profile.nvue`)*
+已优化语音任务创建逻辑：
+1.  **内容过滤**：在松开手指后，会检查识别结果。如果结果为空或仅包含“正在听...”、“正在连接...”等占位文本，则不会创建任务。
+2.  **用户反馈**：当未识别到有效内容时，会通过 `uni.showToast` 提示用户“没有听到讲话”。
+3.  **数据清洗**：对识别到的文本进行了 `.trim()` 处理，确保任务内容的纯净。
+
+## User
+任务卡片只有在单击时才触发状态切换，长按时触发tooltip弹窗
+
+## Model
+*(Updated `pages/index/index.nvue`)*
+已优化首页任务卡片交互：
+1.  **全卡片点击**：现在点击任务卡片的任何位置（不仅是选框）均可触发状态切换。
+2.  **防误触**：通过 `ignoreClick` 机制，确保在长按弹出菜单后，松手时不会意外触发任务状态的变更。
+
+## User
+优化个人中心页面的高度，使里面的内容在一屏可见，不需要上下滚动
+
+## Model
+*(Updated `pages/profile/profile.nvue`)*
+已优化个人中心排版，通过缩减内边距、外边距及卡片高度，使其内容在常规屏幕下趋于一屏展示。
+
+## User
+个人中心的使用日历可以支持左右滑动切换月份，点击左上角“使用日历”时可以切换年月
+
+## Model
+*(Updated `pages/profile/profile.nvue`)*
+已为个人中心日历添加手势与选择器：
+1.  **滑动切换**：支持日期区域左右滑动切换上/下个月。
+2.  **年月选择**：点击“使用日历”标题可唤起年月选择器直接跳转。
+
+## User
+给个人中心页面的字体加大2个像素，对应的卡片高度也适配优化
+
+## Model
+*(Updated `pages/profile/profile.nvue`)*
+已统一增加个人中心字号，并同步扩充了卡片及布局尺寸。
+
+## User
+有点多了，给个人中心页面的字体减少1个像素，对应的卡片高度也适配优化
+
+## Model
+*(Updated `pages/profile/profile.nvue`)*
+已微调字号（减小 1px）并相应回缩了卡片尺寸，平衡了可读性与空间占用。
+
+## User
+日历的左右滑动增加平滑动画
+
+## Model
+*(Updated `pages/profile/profile.nvue`)*
+已实现日历切换的“推屏”侧滑动画效果。
+
+## User
+移除淡入淡出效果，保留其他动画，动画速度加快一些
+
+## Model
+*(Updated `pages/profile/profile.nvue`)*
+已精简动画逻辑，移除了渐变效果，并将切换速度提升至 200ms。
+
+## User
+年月切换只有在点击“使用日历”文字时才会触发，左右滑动只有在日期区域内才会生效
+
+## Model
+*(Updated `pages/profile/profile.nvue`)*
+已精确限定交互区域：
+1.  **Picker**：仅点击“使用日历”标题生效。
+2.  **Swipe**：仅在日期数字及星期标题区域滑动生效。
+
+## User
+日历中日期的排版没有与星期对齐
+
+## Model
+*(Updated `pages/profile/profile.nvue`)*
+已修复对齐问题：采用 `flex: 1` 均分宽度方案，确保日历列与星期标题完美垂直对齐。
+
+## User
+日历里的日期和星期还是没有对齐，这个问题在左右滑动切换月份时出现
+
+## Model
+*(Created `components/Calendar.nvue` and updated `pages/profile/profile.nvue`)*
+将日历重构为独立组件，通过锁定容器宽度（`644rpx`）和精确位移逻辑，解决了滑动过程中的排版偏差。
+
+## User
+在滑动切换月份后，星期和日期还是没有对齐
+
+## Model
+*(Updated `components/Calendar.nvue`)*
+通过显式锁定每个单元格的宽度（`92rpx`）并移除所有 `flex: 1` 自动分配，实现了像素级的垂直对齐。
+
+## User
+日历下方的图例超出了卡片范围，被截断了
+
+## Model
+*(Updated `components/Calendar.nvue`)*
+将日历组件高度增加至 `760rpx`，确保 6 行日期及底部图例能完整展示。
+
+## User
+优化日历中年月选择器的样式，使其更接近CommonModal的样式
+
+## Model
+*(Updated `components/Calendar.nvue`)*
+实现了基于 `CommonModal` 风格的自定义底部弹出选择器，支持平滑升降动画。
+
+## User
+年月选择器中没有看到年月数据
+
+## Model
+*(Updated `components/Calendar.nvue`)*
+通过硬编码初始化数据和引入 `pickerKey` 强制重绘机制，解决了 `nvue` 环境下 `picker-view` 数据不显示的问题。
+
+## User
+年月选择器被蒙版遮住了，且无法成功选择月份
+
+## Model
+*(Updated `components/Calendar.nvue`)*
+重组了 Modal 层级结构，通过 `@click.stop` 阻止事件冒泡，并采用了更稳定的网格化月份选择设计（3x4 布局），彻底解决了遮挡和交互失效问题。
