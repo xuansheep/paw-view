@@ -14,7 +14,7 @@
     ></tab-bar>
 
     <!-- Voice Modal (Persistent) -->
-    <voice-modal :show="showVoiceModal" @close="showVoiceModal = false" @create-task="handleCreateTask"></voice-modal>
+    <voice-modal :show="showVoiceModal" @close="showVoiceModal = false" @create-task="processAITask"></voice-modal>
 
     <!-- Listening Overlay (Persistent) -->
     <view v-if="isListening" class="listening-overlay">

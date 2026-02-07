@@ -1028,3 +1028,27 @@ CommonModal弹出后的位置需要保持在上一版本，保持居中
 
 1. **全局加速**：将 `MODAL_ANIMATION_DURATION` 更新为 `200ms`，提升了全应用的响应感。
 2. **任务动画同步**：在 `TodayTasks.nvue` 中引入了全局时长变量，使任务勾选时的收缩、移动动画与弹窗体系保持完全一致的节奏。
+
+## User
+参考CommonModal弹窗的输入框获取焦点方案（例如设置页面的修改名称弹窗），将新建任务弹窗里的获取焦点方案改成与其一致
+
+## Model
+*(Unified focus logic)*
+
+已参考 `CommonModal` 方案重写了 `VoiceModal` 的焦点逻辑：采用 `showRender` 延迟卸载模式，并直接将 `textarea` 的 `:focus` 属性绑定到 `show` 变量。这确保了输入框在弹窗滑出时能以系统标准行为同步获取焦点并拉起键盘。
+
+## User
+新建任务点击确定时，进入loading状态，调用 CHAT_API_URL 将输入的文本解析为任务后再进行插入，逻辑与语音对话后的文字处理一致
+
+## Model
+*(Integrated AI text parsing for manual tasks)*
+
+已完成“新建任务”逻辑升级：现在点击“确定”后，系统会调用 AI 接口解析输入的文本（如自动识别日期和时间），解析完成后再精准插入数据库。处理期间会展示“AI 处理中...”的全局加载提示。
+
+## User
+将个人中心的设置入口有效点击区域从单个图标改为卡片右方50%
+
+## Model
+*(Expanded settings hit area)*
+
+已优化个人中心交互体验：通过绝对定位创建了 `settings-hit-area`，将设置入口的有效点击范围扩大至用户信息卡片的右侧 50% 区域，并保持图标在视觉上垂直居中对齐。

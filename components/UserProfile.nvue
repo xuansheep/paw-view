@@ -5,18 +5,19 @@
       <view class="profile-header">
         <text class="page-title">个人中心</text>
         <view class="user-card">
-          <view class="user-left">
-              <view class="avatar-container">
-                 <image class="avatar" :src="userInfo.avatar" mode="aspectFill"></image>
-              </view>
-              <view class="user-info">
-                <text class="user-name">{{ userInfo.name }}</text>
-                <text class="user-days">{{ stats.daysUsed || '已使用 1 天' }}</text>
-              </view>
-          </view>
-                                          <view class="settings-btn" @click="goToSettings">
-                                               <text class="iconfont settings-icon">&#xe72a;</text>
-                                          </view>        </view>
+                    <view class="user-left">
+                        <view class="avatar-container">
+                           <image class="avatar" :src="userInfo.avatar" mode="aspectFill"></image>
+                        </view>
+                        <view class="user-info">
+                          <text class="user-name">{{ userInfo.name }}</text>
+                          <text class="user-days">{{ stats.daysUsed || '已使用 1 天' }}</text>
+                        </view>
+                    </view>
+                    <view class="settings-hit-area" @click="goToSettings">
+                         <text class="iconfont settings-icon">&#xe72a;</text>
+                    </view>
+                  </view>
       </view>
 
       <!-- Stats Grid -->
@@ -153,7 +154,7 @@ export default {
 .user-info { justify-content: center; }
 .user-name { font-size: 30rpx; font-weight: bold; color: #101828; margin-bottom: 3rpx; }
 .user-days { font-size: 22rpx; color: #6A7282; }
-.settings-btn { width: 64rpx; height: 64rpx; justify-content: center; align-items: center; }
+.settings-hit-area { position: absolute; top: 0; right: 0; width: 300rpx; height: 130rpx; justify-content: center; align-items: flex-end; padding-right: 40rpx; }
 .settings-icon { font-size: 36rpx; color: #6A7282; }
 .stats-section { margin-bottom: 16rpx; }
 .stats-row { flex-direction: row; justify-content: space-between; margin-bottom: 12rpx; }

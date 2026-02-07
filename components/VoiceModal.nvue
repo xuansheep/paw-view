@@ -1,12 +1,13 @@
 <template>
-  <view class="modal-root" :style="{ visibility: show ? 'visible' : 'hidden', opacity: show ? 1 : 0 }">
+  <!-- Aligning with CommonModal's v-if strategy -->
+  <view class="modal-root" v-if="showRender" :style="{ opacity: isVisible ? 1 : 0 }">
     <!-- Overlay -->
     <view class="modal-overlay" @tap="closeModal"></view>
 
     <!-- Modal Content -->
     <view 
       class="voice-modal" 
-      :class="[show ? 'modal-up' : '']" 
+      :class="[isActive ? 'modal-up' : '']" 
       :style="{ 
         bottom: keyboardHeight + 'px',
         transitionDuration: animDuration + 'ms'
@@ -26,10 +27,9 @@
         <text class="modal-label">✍️ 今天准备做什么呢？</text>
         <view class="input-area">
           <textarea 
-            v-if="showInput"
             class="input-field" 
             v-model="taskText" 
-            :focus="inputFocus"
+            :focus="show"
             :adjust-position="false"
             :show-confirm-bar="false"
             placeholder="请输入任务内容..."
@@ -54,9 +54,10 @@ export default {
   data() {
     return {
       taskText: '',
-      inputFocus: false,
       keyboardHeight: 0,
-      showInput: false,
+      showRender: false,
+      isVisible: false,
+      isActive: false,
       animDuration: MODAL_ANIMATION_DURATION
     };
   },
@@ -66,30 +67,26 @@ export default {
     });
   },
   watch: {
-    show(newVal) {
-      if (newVal) {
-        // 回退到初始的逻辑：通过 showInput 强制重绘并延迟触发 focus
-        this.taskText = '';
-        this.showInput = false;
-        this.inputFocus = false;
-        
-        setTimeout(() => {
-            this.showInput = true;
-            this.$nextTick(() => {
-                this.inputFocus = true;
-                // #ifdef APP-PLUS
-                setTimeout(() => {
-                    if (this.show && plus.key && typeof plus.key.showSoftInput === 'function') {
-                        plus.key.showSoftInput();
-                    }
-                }, 100);
-                // #endif
-            });
-        }, 100);
-      } else {
-        this.inputFocus = false;
-        this.showInput = false;
-        uni.hideKeyboard();
+    show: {
+      immediate: true,
+      handler(val) {
+        if (val) {
+          this.taskText = '';
+          this.showRender = true;
+          this.$nextTick(() => {
+            setTimeout(() => {
+              this.isVisible = true;
+              this.isActive = true;
+            }, 50);
+          });
+        } else {
+          this.isActive = false;
+          this.isVisible = false;
+          setTimeout(() => {
+            this.showRender = false;
+            uni.hideKeyboard();
+          }, this.animDuration);
+        }
       }
     }
   },
@@ -118,6 +115,7 @@ export default {
   right: 0;
   bottom: 0;
   z-index: 999;
+  transition-property: opacity;
 }
 
 .modal-overlay {
