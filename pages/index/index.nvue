@@ -19,11 +19,8 @@
     <!-- Listening Overlay (Persistent) -->
     <view v-if="isListening" class="listening-overlay">
       <view class="listening-content">
-        <view class="listening-icon-container">
-           <image class="listening-icon" src="/static/mic-icon-white.png" mode="aspectFit"></image>
-           <view class="ripple-ring"></view>
-        </view>
-        <text class="listening-text">{{ realTimeText || '正在听...' }}</text>
+        <voice-loading :active="isListening" mode="wave" class="voice-loader"></voice-loading>
+        <text class="listening-text">{{ realTimeText || '正在聆听...' }}</text>
       </view>
     </view>
   </view>
@@ -34,11 +31,12 @@ import VoiceModal from '@/components/VoiceModal.nvue';
 import TabBar from '@/components/TabBar.nvue';
 import TodayTasks from '@/components/TodayTasks.nvue';
 import UserProfile from '@/components/UserProfile.nvue';
+import VoiceLoading from '@/components/VoiceLoading.nvue';
 import db from '@/utils/db.js';
 import { ASR_WS_URL, CHAT_API_URL } from '@/utils/config.js';
 
 export default {
-  components: { VoiceModal, TabBar, TodayTasks, UserProfile },
+  components: { VoiceModal, TabBar, TodayTasks, UserProfile, VoiceLoading },
   data() {
     return {
       currentPage: 'index',
@@ -65,15 +63,12 @@ export default {
           this.currentPage = 'index';
           uni.setNavigationBarTitle({ title: '今日待办' });
       }
-      // Since components watch 'active' or use 'uni.$emit', we might need to notify them
-      // But TodayTasks reloads on mounted or when active becomes true.
-      // If already active, we can use a global event.
       uni.$emit('refresh-tasks');
     },
     async processAITask(rawText) {
         if (!rawText) return;
         uni.showLoading({ title: 'AI 处理中...' });
-        
+
         uni.request({
             url: CHAT_API_URL,
             method: 'POST',
@@ -135,7 +130,7 @@ export default {
     },
     async onVoiceLongPress() {
       if (this.isListening || this.isConnectionPending || this.showVoiceModal) return;
-      
+
       // #ifdef APP-PLUS
       if (uni.getSystemInfoSync().platform === 'android') {
           const permStatus = plus.navigator.checkPermission('RECORD');
@@ -176,7 +171,7 @@ export default {
               if (this.socketTask) this.socketTask.close();
               return;
           }
-          this.realTimeText = '正在听...';
+          this.realTimeText = '正在聆听...';
           if (this.pawRecorder) this.pawRecorder.startRecorder();
       });
 
@@ -201,7 +196,7 @@ export default {
             this.socketTask.send({ data: 'STOP' });
             setTimeout(() => {
                 const finalTaskName = (this.realTimeText || '').trim();
-                if (finalTaskName && finalTaskName !== '正在听...' && finalTaskName !== '正在连接...') {
+                if (finalTaskName && finalTaskName !== '正在聆听...' && finalTaskName !== '正在连接...') {
                     this.processAITask(finalTaskName);
                 } else {
                     uni.showToast({ title: '没有听到讲话', icon: 'none' });
@@ -220,15 +215,15 @@ export default {
   },
   onLoad() {
     this.initRecorder();
-    uni.$on('add-task', async (t) => { 
-        if (t && t.name) { 
-            await db.addTask(t.name); 
+    uni.$on('add-task', async (t) => {
+        if (t && t.name) {
+            await db.addTask(t.name);
             if (this.currentPage !== 'index') {
                 this.currentPage = 'index';
                 uni.setNavigationBarTitle({ title: '今日待办' });
             }
-            uni.$emit('refresh-tasks'); 
-        } 
+            uni.$emit('refresh-tasks');
+        }
     });
   },
   onUnload() { uni.$off('add-task'); },
@@ -247,10 +242,8 @@ export default {
 <style>
 .container { flex: 1; background-color: #FAFAFA; flex-direction: column; }
 .flex-fill { flex: 1; }
-.listening-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.6); justify-content: center; align-items: center; z-index: 999; }
-.listening-content { align-items: center; justify-content: center; }
-.listening-icon-container { width: 160rpx; height: 160rpx; background-color: #F1795C; border-radius: 80rpx; justify-content: center; align-items: center; margin-bottom: 40rpx; position: relative; }
-.ripple-ring { position: absolute; top: -20rpx; left: -20rpx; right: -20rpx; bottom: -20rpx; border-width: 8rpx; border-color: rgba(241, 121, 92, 0.4); border-radius: 100rpx; border-style: solid; }
-.listening-icon { width: 64rpx; height: 64rpx; }
-.listening-text { color: #FFFFFF; font-size: 32rpx; font-weight: bold; }
+.listening-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.4); justify-content: center; align-items: center; z-index: 999; }
+.listening-content { align-items: center; justify-content: center; width: 440rpx; }
+.voice-loader { margin-bottom: 40rpx; }
+.listening-text { color: #F1795C; font-size: 32rpx; font-weight: bold; text-align: center; }
 </style>

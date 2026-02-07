@@ -1,0 +1,185 @@
+<template>
+  <view class="loading-container">
+    <!-- Wave Mode -->
+    <view v-if="mode === 'wave'" class="wave-container">
+      <view ref="bar1" class="wave-bar"></view>
+      <view ref="bar2" class="wave-bar"></view>
+      <view ref="bar3" class="wave-bar"></view>
+      <view ref="bar4" class="wave-bar"></view>
+      <view ref="bar5" class="wave-bar"></view>
+    </view>
+
+    <!-- Normal Mode (Rotating Circle) -->
+    <view v-if="mode === 'normal'" class="normal-container">
+      <view ref="spinner" class="spinner-ring"></view>
+    </view>
+  </view>
+</template>
+
+<script>
+// #ifdef APP-NVUE
+const animation = uni.requireNativePlugin('animation');
+// #endif
+
+export default {
+  props: {
+    mode: {
+      type: String,
+      default: 'wave' // 'wave' or 'normal'
+    },
+    active: {
+      type: Boolean,
+      default: false
+    }
+  },
+  data() {
+    return {
+      waveTimers: [],
+      isAnimating: false
+    };
+  },
+  watch: {
+    active: {
+      immediate: true,
+      handler(val) {
+        if (val) {
+          this.isAnimating = true;
+          this.$nextTick(() => {
+            // Start immediately in nvue once the view is ready
+            if (this.isAnimating) {
+              if (this.mode === 'wave') {
+                this.startWaveAnimation();
+              } else {
+                this.startNormalAnimation();
+              }
+            }
+          });
+        } else {
+          this.isAnimating = false;
+          this.stopAnimations();
+        }
+      }
+    }
+  },
+  mounted() {
+    if (this.active) {
+      this.isAnimating = true;
+      this.$nextTick(() => {
+        if (this.mode === 'wave') {
+          this.startWaveAnimation();
+        } else {
+          this.startNormalAnimation();
+        }
+      });
+    }
+  },
+  methods: {
+    stopAnimations() {
+      this.waveTimers.forEach(clearTimeout);
+      this.waveTimers = [];
+    },
+    // Wave Animation
+    startWaveAnimation() {
+      this.stopAnimations();
+      for (let i = 1; i <= 5; i++) {
+        const timer = setTimeout(() => {
+          this.animateBar(i);
+        }, (i - 1) * 150);
+        this.waveTimers.push(timer);
+      }
+    },
+    animateBar(index) {
+      let ref = this.$refs[`bar${index}`];
+      if (!ref || !this.isAnimating) return;
+      if (Array.isArray(ref)) ref = ref[0];
+      if (!ref) return;
+
+      animation.transition(ref, {
+        styles: { transform: 'scale(1, 1)', opacity: 1 },
+        duration: 400,
+        timingFunction: 'ease-in-out'
+      }, () => {
+        if (!this.isAnimating) return;
+        animation.transition(ref, {
+          styles: { transform: 'scale(1, 0.2)', opacity: 0.5 },
+          duration: 400,
+          timingFunction: 'ease-in-out'
+        }, () => {
+          if (this.isAnimating && this.mode === 'wave') this.animateBar(index);
+        });
+      });
+    },
+    // Normal Animation (Rotation)
+    startNormalAnimation() {
+      let ref = this.$refs.spinner;
+      if (!ref || !this.isAnimating) return;
+      if (Array.isArray(ref)) ref = ref[0];
+      if (!ref) return;
+
+      this.animateRotation(0);
+    },
+    animateRotation(currentAngle) {
+      let ref = this.$refs.spinner;
+      if (!ref || !this.isAnimating) return;
+      if (Array.isArray(ref)) ref = ref[0];
+      if (!ref) return;
+
+      const nextAngle = currentAngle + 360;
+      animation.transition(ref, {
+        styles: { transform: `rotate(${nextAngle}deg)` },
+        duration: 1000,
+        timingFunction: 'linear'
+      }, () => {
+        if (this.isAnimating && this.mode === 'normal') {
+          this.animateRotation(nextAngle);
+        }
+      });
+    }
+  },
+  beforeDestroy() {
+    this.isAnimating = false;
+    this.stopAnimations();
+  }
+};
+</script>
+
+<style scoped>
+.loading-container {
+  align-items: center;
+  justify-content: center;
+}
+
+/* Wave Styles */
+.wave-container {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  height: 120rpx;
+}
+.wave-bar {
+  width: 16rpx;
+  height: 75rpx;
+  border-radius: 8rpx;
+  background-color: #F1795C;
+  margin: 0 8rpx;
+  transform: scale(1, 0.2);
+  opacity: 0.8;
+}
+
+/* Normal Styles */
+.normal-container {
+  width: 100rpx;
+  height: 100rpx;
+  justify-content: center;
+  align-items: center;
+}
+.spinner-ring {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 40rpx;
+  border-width: 10rpx;
+  border-style: solid;
+  border-color: #F1795C;
+  border-top-color: rgba(241, 121, 92, 0.2); /* Gap effect */
+}
+</style>
