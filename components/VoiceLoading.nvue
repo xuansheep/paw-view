@@ -1,17 +1,22 @@
 <template>
-  <view class="loading-container">
-    <!-- Wave Mode -->
-    <view v-if="mode === 'wave'" class="wave-container">
-      <view ref="bar1" class="wave-bar"></view>
-      <view ref="bar2" class="wave-bar"></view>
-      <view ref="bar3" class="wave-bar"></view>
-      <view ref="bar4" class="wave-bar"></view>
-      <view ref="bar5" class="wave-bar"></view>
-    </view>
+  <view class="loading-wrapper" v-if="active">
+    <view class="loading-container">
+      <!-- Wave Mode -->
+      <view v-if="mode === 'wave'" class="wave-container">
+        <view ref="bar1" class="wave-bar"></view>
+        <view ref="bar2" class="wave-bar"></view>
+        <view ref="bar3" class="wave-bar"></view>
+        <view ref="bar4" class="wave-bar"></view>
+        <view ref="bar5" class="wave-bar"></view>
+      </view>
 
-    <!-- Normal Mode (Rotating Circle) -->
-    <view v-if="mode === 'normal'" class="normal-container">
-      <view ref="spinner" class="spinner-ring"></view>
+      <!-- Normal Mode (Rotating Circle) -->
+      <view v-if="mode === 'normal'" class="normal-container">
+        <view ref="spinner" class="spinner-ring"></view>
+      </view>
+
+      <!-- Status Text -->
+      <text v-if="text" class="status-text">{{ text }}</text>
     </view>
   </view>
 </template>
@@ -30,6 +35,10 @@ export default {
     active: {
       type: Boolean,
       default: false
+    },
+    text: {
+      type: String,
+      default: ''
     }
   },
   data() {
@@ -44,8 +53,8 @@ export default {
       handler(val) {
         if (val) {
           this.isAnimating = true;
-          this.$nextTick(() => {
-            // Start immediately in nvue once the view is ready
+          // Use a very short delay to ensure nvue native side is ready
+          setTimeout(() => {
             if (this.isAnimating) {
               if (this.mode === 'wave') {
                 this.startWaveAnimation();
@@ -53,24 +62,12 @@ export default {
                 this.startNormalAnimation();
               }
             }
-          });
+          }, 50);
         } else {
           this.isAnimating = false;
           this.stopAnimations();
         }
       }
-    }
-  },
-  mounted() {
-    if (this.active) {
-      this.isAnimating = true;
-      this.$nextTick(() => {
-        if (this.mode === 'wave') {
-          this.startWaveAnimation();
-        } else {
-          this.startNormalAnimation();
-        }
-      });
     }
   },
   methods: {
@@ -84,7 +81,7 @@ export default {
       for (let i = 1; i <= 5; i++) {
         const timer = setTimeout(() => {
           this.animateBar(i);
-        }, (i - 1) * 150);
+        }, (i - 1) * 100); // Shorter staggering for more immediate feel
         this.waveTimers.push(timer);
       }
     },
@@ -94,15 +91,16 @@ export default {
       if (Array.isArray(ref)) ref = ref[0];
       if (!ref) return;
 
+      // Start by expanding
       animation.transition(ref, {
         styles: { transform: 'scale(1, 1)', opacity: 1 },
-        duration: 400,
+        duration: 300, // Faster pulse
         timingFunction: 'ease-in-out'
       }, () => {
         if (!this.isAnimating) return;
         animation.transition(ref, {
           styles: { transform: 'scale(1, 0.2)', opacity: 0.5 },
-          duration: 400,
+          duration: 300,
           timingFunction: 'ease-in-out'
         }, () => {
           if (this.isAnimating && this.mode === 'wave') this.animateBar(index);
@@ -144,9 +142,18 @@ export default {
 </script>
 
 <style scoped>
+.loading-wrapper {
+  align-items: center;
+  justify-content: center;
+}
+
 .loading-container {
   align-items: center;
   justify-content: center;
+  width: 440rpx;
+  background-color: rgba(0, 0, 0, 0.75);
+  padding: 50rpx;
+  border-radius: 40rpx;
 }
 
 /* Wave Styles */
@@ -155,6 +162,8 @@ export default {
   align-items: center;
   justify-content: center;
   height: 120rpx;
+  width: 340rpx;
+  margin-bottom: 20rpx;
 }
 .wave-bar {
   width: 16rpx;
@@ -163,7 +172,7 @@ export default {
   background-color: #F1795C;
   margin: 0 8rpx;
   transform: scale(1, 0.2);
-  opacity: 0.8;
+  opacity: 0.5;
 }
 
 /* Normal Styles */
@@ -172,6 +181,7 @@ export default {
   height: 100rpx;
   justify-content: center;
   align-items: center;
+  margin-bottom: 20rpx;
 }
 .spinner-ring {
   width: 80rpx;
@@ -181,5 +191,12 @@ export default {
   border-style: solid;
   border-color: #F1795C;
   border-top-color: rgba(241, 121, 92, 0.2); /* Gap effect */
+}
+
+.status-text {
+  color: #FFFFFF;
+  font-size: 30rpx;
+  font-weight: bold;
+  text-align: center;
 }
 </style>

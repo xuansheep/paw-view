@@ -18,10 +18,7 @@
 
     <!-- Listening Overlay (Persistent) -->
     <view v-if="isListening" class="listening-overlay">
-      <view class="listening-content">
-        <voice-loading :active="isListening" mode="wave" class="voice-loader"></voice-loading>
-        <text class="listening-text">{{ realTimeText || '正在聆听...' }}</text>
-      </view>
+       <voice-loading :active="isListening" :text="realTimeText || '正在聆听...'" mode="wave"></voice-loading>
     </view>
   </view>
 </template>
@@ -242,8 +239,5 @@ export default {
 <style>
 .container { flex: 1; background-color: #FAFAFA; flex-direction: column; }
 .flex-fill { flex: 1; }
-.listening-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.4); justify-content: center; align-items: center; z-index: 999; }
-.listening-content { align-items: center; justify-content: center; width: 440rpx; }
-.voice-loader { margin-bottom: 40rpx; }
-.listening-text { color: #F1795C; font-size: 32rpx; font-weight: bold; text-align: center; }
+.listening-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; justify-content: center; align-items: center; z-index: 999; }
 </style>
