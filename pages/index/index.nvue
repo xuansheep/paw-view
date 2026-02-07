@@ -13,105 +13,110 @@
       @voice-touchend="onVoiceTouchEnd"
     ></tab-bar>
 
-    <!-- Voice Modal (Persistent) -->
-    <voice-modal :show="showVoiceModal" @close="showVoiceModal = false" @create-task="processAITask"></voice-modal>
-
-    <!-- Listening Overlay (Persistent) -->
-    <view v-if="isListening" class="listening-overlay">
-       <voice-loading :active="isListening" :text="realTimeText || '正在聆听...'" mode="wave"></voice-loading>
-    </view>
-  </view>
-</template>
-
-<script>
-import VoiceModal from '@/components/VoiceModal.nvue';
-import TabBar from '@/components/TabBar.nvue';
-import TodayTasks from '@/components/TodayTasks.nvue';
-import UserProfile from '@/components/UserProfile.nvue';
-import VoiceLoading from '@/components/VoiceLoading.nvue';
-import db from '@/utils/db.js';
-import { ASR_WS_URL, CHAT_API_URL } from '@/utils/config.js';
-
-export default {
-  components: { VoiceModal, TabBar, TodayTasks, UserProfile, VoiceLoading },
-  data() {
-    return {
-      currentPage: 'index',
-      showVoiceModal: false,
-      isListening: false,
-      realTimeText: '',
-      isConnectionPending: false,
-      isSocketOpen: false,
-      currentSessionId: 0,
-      pawRecorder: null
-    };
-  },
-  methods: {
-    onTabChange(tab) {
-      if (this.currentPage === tab) return;
-      this.currentPage = tab;
-      const title = tab === 'index' ? '今日待办' : '个人中心';
-      uni.setNavigationBarTitle({ title });
-    },
-    async handleCreateTask(taskName) {
-      if (!taskName) return;
-      await db.addTask(taskName);
-      if (this.currentPage !== 'index') {
-          this.currentPage = 'index';
-          uni.setNavigationBarTitle({ title: '今日待办' });
-      }
-      uni.$emit('refresh-tasks');
-    },
-    async processAITask(rawText) {
-        if (!rawText) return;
-        uni.showLoading({ title: 'AI 处理中...' });
-
-        uni.request({
-            url: CHAT_API_URL,
-            method: 'POST',
-            data: {
-                text: rawText,
-                prompt_key: 'task'
-            },
-            success: async (res) => {
-                uni.hideLoading();
-                if (res.data && res.data.result) {
-                    try {
-                        const taskList = JSON.parse(res.data.result);
-                        if (Array.isArray(taskList) && taskList.length > 0) {
-                            for (const item of taskList) {
-                                let date = null;
-                                let time = null;
-                                if (item.datetime && item.datetime.includes(' ')) {
-                                    const parts = item.datetime.split(' ');
-                                    date = parts[0];
-                                    time = parts[1];
+        <!-- Voice Modal (Persistent) -->
+        <voice-modal :show="showVoiceModal" @close="showVoiceModal = false" @create-task="processAITask"></voice-modal>
+    
+        <!-- Listening Overlay (Persistent) -->
+        <view v-if="isListening" class="listening-overlay">
+           <voice-loading :active="isListening" :text="realTimeText || '正在聆听...'" mode="wave"></voice-loading>
+        </view>
+    
+        <!-- AI Processing Overlay -->
+        <view v-if="isProcessingAI" class="listening-overlay">
+           <voice-loading :active="isProcessingAI" text="AI 处理中..." mode="normal"></voice-loading>
+        </view>
+      </view>
+    </template>
+    
+    <script>
+    import VoiceModal from '@/components/VoiceModal.nvue';
+    import TabBar from '@/components/TabBar.nvue';
+    import TodayTasks from '@/components/TodayTasks.nvue';
+    import UserProfile from '@/components/UserProfile.nvue';
+    import VoiceLoading from '@/components/VoiceLoading.nvue';
+    import db from '@/utils/db.js';
+    import { ASR_WS_URL, CHAT_API_URL } from '@/utils/config.js';
+    
+    export default {
+      components: { VoiceModal, TabBar, TodayTasks, UserProfile, VoiceLoading },
+      data() {
+        return {
+          currentPage: 'index',
+          showVoiceModal: false,
+          isListening: false,
+          isProcessingAI: false,
+          realTimeText: '',
+          isConnectionPending: false,
+          isSocketOpen: false,
+          currentSessionId: 0,
+          pawRecorder: null
+        };
+      },
+      methods: {
+        onTabChange(tab) {
+          if (this.currentPage === tab) return;
+          this.currentPage = tab;
+          const title = tab === 'index' ? '今日待办' : '个人中心';
+          uni.setNavigationBarTitle({ title });
+        },
+        async handleCreateTask(taskName) {
+          if (!taskName) return;
+          await db.addTask(taskName);
+          if (this.currentPage !== 'index') {
+              this.currentPage = 'index';
+              uni.setNavigationBarTitle({ title: '今日待办' });
+          }
+          uni.$emit('refresh-tasks');
+        },
+        async processAITask(rawText) {
+            if (!rawText) return;
+            this.isProcessingAI = true;
+            
+            uni.request({
+                url: CHAT_API_URL,
+                method: 'POST',
+                data: {
+                    text: rawText,
+                    prompt_key: 'task'
+                },
+                success: async (res) => {
+                    this.isProcessingAI = false;
+                    if (res.data && res.data.result) {
+                        try {
+                            const taskList = JSON.parse(res.data.result);
+                            if (Array.isArray(taskList) && taskList.length > 0) {
+                                for (const item of taskList) {
+                                    let date = null;
+                                    let time = null;
+                                    if (item.datetime && item.datetime.includes(' ')) {
+                                        const parts = item.datetime.split(' ');
+                                        date = parts[0];
+                                        time = parts[1];
+                                    }
+                                    await db.addTask(item.content || item.name, date, time);
                                 }
-                                await db.addTask(item.content || item.name, date, time);
+                                if (this.currentPage !== 'index') {
+                                    this.currentPage = 'index';
+                                    uni.setNavigationBarTitle({ title: '今日待办' });
+                                }
+                                uni.$emit('refresh-tasks');
+                                uni.showToast({ title: `成功添加 ${taskList.length} 个任务`, icon: 'success' });
+                            } else {
+                                await this.handleCreateTask(rawText);
                             }
-                            if (this.currentPage !== 'index') {
-                                this.currentPage = 'index';
-                                uni.setNavigationBarTitle({ title: '今日待办' });
-                            }
-                            uni.$emit('refresh-tasks');
-                            uni.showToast({ title: `成功添加 ${taskList.length} 个任务`, icon: 'success' });
-                        } else {
+                        } catch (e) {
                             await this.handleCreateTask(rawText);
                         }
-                    } catch (e) {
+                    } else {
                         await this.handleCreateTask(rawText);
                     }
-                } else {
+                },
+                fail: async (err) => {
+                    this.isProcessingAI = false;
                     await this.handleCreateTask(rawText);
                 }
-            },
-            fail: async (err) => {
-                uni.hideLoading();
-                await this.handleCreateTask(rawText);
-            }
-        });
-    },
-    onVoiceClick() {
+            });
+        },    onVoiceClick() {
         if (this.isListening || this.isConnectionPending) return;
         this.showVoiceModal = true;
     },
