@@ -2,7 +2,7 @@
   <view class="calendar-card">
     <view class="calendar-header" @click="openPickerModal">
       <view class="header-left">
-        <text class="icon-calendar iconfont">&#xe608;</text>
+        <text class="icon-calendar iconfont">&#xe6e3;</text>
         <text class="calendar-title">使用日历</text>
       </view>
     </view>
@@ -49,10 +49,15 @@
       </view>
     </view>
 
-    <!-- Stable Grid Bottom Picker -->
-    <view v-if="showPickerModal" class="picker-modal-container">
+    <!-- Bottom Picker Modal -->
+    <view v-if="showPickerModal" class="picker-modal-container" :style="{ opacity: isPickerVisible ? 1 : 0 }">
       <view class="picker-mask" @click="closePickerModal"></view>
-      <view class="bottom-picker picker-up" @click.stop="">
+      <view 
+        class="bottom-picker" 
+        :class="[isPickerActive ? 'picker-up' : '']" 
+        @click.stop=""
+        :style="{ transitionDuration: animDuration + 'ms' }"
+      >
         <view class="picker-header">
           <text class="picker-title">选择年月</text>
           <view class="close-btn" @click="closePickerModal">
@@ -91,6 +96,12 @@
 </template>
 
 <script>
+import { MODAL_ANIMATION_DURATION } from '@/utils/config.js';
+
+// #ifdef APP-NVUE
+const dom = uni.requireNativePlugin('dom');
+// #endif
+
 export default {
   name: 'Calendar',
   props: {
@@ -107,10 +118,23 @@ export default {
       currentMonthStr: '',
       animationClass: '',
       isAnimating: false,
+      
+      // Picker States
       showPickerModal: false,
+      isPickerVisible: false,
+      isPickerActive: false,
       tempYear: now.getFullYear(),
-      tempMonth: now.getMonth()
+      tempMonth: now.getMonth(),
+      animDuration: MODAL_ANIMATION_DURATION
     };
+  },
+  beforeCreate() {
+    // #ifdef APP-NVUE
+    dom.addRule('fontFace', {
+        'fontFamily': 'iconfont',
+        'src': "url('/static/fonts/iconfont.ttf')"
+    });
+    // #endif
   },
   watch: {
     activityDates: {
@@ -163,9 +187,19 @@ export default {
       this.tempYear = this.currentDate.getFullYear();
       this.tempMonth = this.currentDate.getMonth();
       this.showPickerModal = true;
+      this.$nextTick(() => {
+          setTimeout(() => {
+              this.isPickerVisible = true;
+              this.isPickerActive = true;
+          }, 50);
+      });
     },
     closePickerModal() {
-      this.showPickerModal = false;
+      this.isPickerActive = false;
+      this.isPickerVisible = false;
+      setTimeout(() => {
+        this.showPickerModal = false;
+      }, this.animDuration);
     },
     changePickerYear(delta) {
       this.tempYear += delta;
@@ -177,7 +211,8 @@ export default {
     onPickerConfirm() {
       if (this.isAnimating) return;
       this.isAnimating = true;
-      this.showPickerModal = false;
+      this.closePickerModal();
+      
       this.animationClass = 'anim-fade-out';
       
       setTimeout(() => {
@@ -346,6 +381,7 @@ export default {
   right: 0;
   bottom: 0;
   z-index: 2000;
+  transition-property: opacity;
 }
 
 .picker-mask {
@@ -367,10 +403,13 @@ export default {
   border-top-right-radius: 48rpx;
   padding-top: 40rpx;
   padding-bottom: 80rpx;
+  transform: translateY(800rpx);
+  transition-property: transform;
+  transition-timing-function: ease-out;
 }
 
 .picker-up {
-  /* Simplified for v-if structure */
+  transform: translateY(0);
 }
 
 .picker-header {
@@ -453,240 +492,5 @@ export default {
 .month-item-text {
   font-size: 30rpx;
   color: #101828;
-}
-</style>
-
-<style scoped>
-.iconfont { font-family: iconfont; }
-
-.calendar-card {
-  background-color: #FFFFFF;
-  border-radius: 32rpx;
-  padding-top: 24rpx;
-  padding-bottom: 24rpx;
-  height: 760rpx;
-  flex-direction: column;
-  align-items: center;
-  position: relative;
-}
-
-.calendar-header {
-  flex-direction: row;
-  align-items: center;
-  margin-bottom: 12rpx;
-  width: 644rpx;
-}
-
-.header-left {
-  flex-direction: row;
-  align-items: center;
-}
-
-.icon-calendar {
-  font-size: 34rpx;
-  color: #F1795C;
-  margin-right: 14rpx;
-}
-
-.calendar-title {
-  font-size: 30rpx;
-  font-weight: bold;
-  color: #101828;
-}
-
-.month-display {
-  align-items: center;
-  margin-bottom: 14rpx;
-  width: 644rpx;
-}
-
-.month-text {
-  font-size: 26rpx;
-  color: #4A5565;
-}
-
-.calendar-body {
-  width: 644rpx;
-  height: 540rpx;
-  flex-direction: column;
-}
-
-.week-days {
-  flex-direction: row;
-  height: 40rpx;
-  margin-bottom: 14rpx;
-  width: 644rpx;
-}
-
-.day-label {
-  width: 92rpx;
-  text-align: center;
-  font-size: 26rpx;
-  color: #6A7282;
-  height: 40rpx;
-  line-height: 40rpx;
-}
-
-.grid-container {
-  width: 644rpx;
-  height: 486rpx;
-  overflow: hidden;
-}
-
-.calendar-grid {
-  flex-direction: column;
-  width: 644rpx;
-  transition-property: transform, opacity;
-  transition-duration: 200ms;
-  transition-timing-function: ease-in-out;
-}
-
-.grid-row {
-  flex-direction: row;
-  margin-bottom: 6rpx;
-  width: 644rpx;
-  height: 76rpx;
-}
-
-.day-cell {
-  width: 92rpx;
-  height: 76rpx;
-  border-radius: 18rpx;
-  justify-content: center;
-  align-items: center;
-}
-
-.day-text {
-  font-size: 26rpx;
-}
-
-/* Cell Styles */
-.cell-today { background-color: #F1795C; }
-.cell-recorded { background-color: #FFF5F0; }
-
-.text-white { color: #FFFFFF; }
-.text-dark { color: #101828; }
-.text-gray { color: #99A1AF; }
-
-/* Legend Styles */
-.calendar-legend {
-  flex-direction: row;
-  justify-content: center;
-  margin-top: 18rpx;
-  border-top-width: 2rpx;
-  border-top-color: #F3F4F6;
-  padding-top: 18rpx;
-  width: 644rpx;
-}
-
-.legend-item {
-  flex-direction: row;
-  align-items: center;
-  margin-right: 32rpx;
-}
-
-.legend-dot {
-  width: 18rpx;
-  height: 18rpx;
-  border-radius: 7rpx;
-  margin-right: 10rpx;
-}
-
-.dot-recorded { background-color: #FFF5F0; border-width: 1rpx; border-color: #F1795C; }
-.dot-today { background-color: #F1795C; }
-.legend-text { font-size: 22rpx; color: #6A7282; }
-
-/* Animation Classes */
-.anim-center { transform: translateX(0rpx); opacity: 1; }
-.anim-fade-out { opacity: 0; transform: scale(0.96); transition-duration: 150ms; }
-
-/* Enhanced Bottom Picker Styles */
-.picker-mask {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.4);
-  z-index: 1000;
-}
-
-.bottom-picker {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #FFFFFF;
-  border-top-left-radius: 40rpx;
-  border-top-right-radius: 40rpx;
-  z-index: 1001;
-  padding-bottom: 60rpx;
-  transform: translateY(100%);
-  transition-property: transform;
-  transition-duration: 300ms;
-  transition-timing-function: ease-out;
-}
-
-.picker-up {
-  transform: translateY(0);
-}
-
-.picker-header {
-  flex-direction: row;
-  justify-content: space-between;
-  align-items: center;
-  height: 110rpx;
-  padding-left: 30rpx;
-  padding-right: 30rpx;
-  border-bottom-width: 1rpx;
-  border-bottom-color: #F3F4F6;
-}
-
-.btn-box {
-  padding: 20rpx;
-}
-
-.picker-btn {
-  font-size: 32rpx;
-}
-
-.picker-title {
-  font-size: 34rpx;
-  font-weight: bold;
-  color: #101828;
-}
-
-.picker-cancel {
-  color: #6A7282;
-}
-
-.picker-confirm {
-  color: #F1795C;
-  font-weight: bold;
-}
-
-.picker-content {
-  height: 450rpx;
-  background-color: #FFFFFF;
-}
-
-.picker-view {
-  height: 450rpx;
-  width: 750rpx;
-}
-
-.picker-item {
-  height: 50px;
-  align-items: center;
-  justify-content: center;
-}
-
-.item-text {
-  font-size: 36rpx;
-  color: #101828;
-  height: 50px;
-  line-height: 50px;
-  text-align: center;
-  font-weight: bold;
 }
 </style>

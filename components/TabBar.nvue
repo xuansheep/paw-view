@@ -2,7 +2,7 @@
   <view class="tab-bar-wrapper">
     <view class="tab-bar-bg"></view>
     <view class="nav-bar">
-      <view class="nav-item" @click="navigateTo('/pages/index/index')">
+      <view class="nav-item" @click="$emit('tab-change', 'index')">
         <text :class="['nav-icon', 'iconfont', currentPage === 'index' ? 'text-active' : '']">&#xe60a;</text>
         <text :class="['nav-text', currentPage === 'index' ? 'text-active' : '']">今日待办</text>
       </view>
@@ -12,7 +12,7 @@
           </view>
           <text class="nav-text-voice">语音对话</text>
       </view>
-      <view class="nav-item" @click="navigateTo('/pages/profile/profile')">
+      <view class="nav-item" @click="$emit('tab-change', 'profile')">
         <text :class="['nav-icon', 'iconfont', currentPage === 'profile' ? 'text-active' : '']">&#xe60b;</text>
         <text :class="['nav-text', currentPage === 'profile' ? 'text-active' : '']">个人中心</text>
       </view>
@@ -39,17 +39,6 @@ export default {
         'src': "url('/static/fonts/iconfont.ttf')"
     });
     // #endif
-  },
-  methods: {
-    navigateTo(url) {
-      // Determine page name from url to check against currentPage
-      const targetPage = url.includes('index') ? 'index' : 'profile';
-      if (this.currentPage === targetPage) return;
-      
-      uni.redirectTo({
-        url: url
-      });
-    }
   }
 }
 </script>

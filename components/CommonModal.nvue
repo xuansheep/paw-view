@@ -1,10 +1,14 @@
 <template>
-  <view class="modal-root" v-if="visible">
+  <view class="modal-root" v-if="showRender" :style="{ opacity: isVisible ? 1 : 0 }">
     <!-- Overlay -->
     <view class="modal-overlay" @click="handleCancel"></view>
 
     <!-- Modal Content -->
-    <view class="modal-container">
+    <view 
+      class="modal-container" 
+      :class="[isActive ? 'modal-active' : '']"
+      :style="{ transitionDuration: animDuration + 'ms' }"
+    >
       <!-- Header -->
       <view class="modal-header">
         <text class="modal-title">{{ title }}</text>
@@ -22,7 +26,7 @@
           <text class="btn-text text-gray">{{ cancelText }}</text>
         </view>
         <view class="modal-btn btn-confirm" @click="handleConfirm">
-          <text class="btn-text text-white">{{ confirmText }}</text>
+          <text class="btn-text text-primary">{{ confirmText }}</text>
         </view>
       </view>
     </view>
@@ -30,6 +34,8 @@
 </template>
 
 <script>
+import { MODAL_ANIMATION_DURATION } from '@/utils/config.js';
+
 export default {
   props: {
     visible: {
@@ -57,16 +63,40 @@ export default {
       default: '取消'
     }
   },
+  data() {
+    return {
+      showRender: false,
+      isVisible: false,
+      isActive: false,
+      animDuration: MODAL_ANIMATION_DURATION
+    };
+  },
   watch: {
-    visible(val) {
-      if (!val) {
-        uni.hideKeyboard();
+    visible: {
+      immediate: true,
+      handler(val) {
+        if (val) {
+          this.showRender = true;
+          // Step-by-step activation for nvue animation
+          this.$nextTick(() => {
+            setTimeout(() => {
+              this.isVisible = true;
+              this.isActive = true;
+            }, 50);
+          });
+        } else {
+          this.isActive = false;
+          this.isVisible = false;
+          setTimeout(() => {
+            this.showRender = false;
+            uni.hideKeyboard();
+          }, this.animDuration);
+        }
       }
     }
   },
   methods: {
     handleCancel() {
-      uni.hideKeyboard();
       this.$emit('cancel');
     },
     handleConfirm() {
@@ -76,7 +106,7 @@ export default {
 }
 </script>
 
-<style>
+<style scoped>
 .modal-root {
   position: fixed;
   top: 0;
@@ -86,6 +116,8 @@ export default {
   z-index: 1000;
   justify-content: center;
   align-items: center;
+  transition-property: opacity;
+  transition-duration: 200ms;
 }
 
 .modal-overlay {
@@ -102,8 +134,16 @@ export default {
   background-color: #FFFFFF;
   border-radius: 24rpx;
   overflow: hidden;
-  opacity: 1;
+  /* Start slightly smaller and transparent for pop-out effect */
+  transform: scale(0.8);
+  opacity: 0;
+  transition-property: transform, opacity;
+  transition-timing-function: ease-out;
+}
+
+.modal-active {
   transform: scale(1);
+  opacity: 1;
 }
 
 .modal-header {
@@ -150,15 +190,6 @@ export default {
   border-right-color: #F3F4F6;
 }
 
-.btn-confirm {
-  /* background-color: #FFF; */ 
-  /* Usually standard modal buttons are white bg with colored text, 
-     or one colored button. Let's stick to simple text buttons for "iOS style" 
-     or filled button for "Material style". 
-     Given the app style (orange primary), let's make the confirm text orange.
-  */
-}
-
 .btn-text {
   font-size: 32rpx;
   font-weight: bold;
@@ -169,18 +200,7 @@ export default {
   font-weight: normal;
 }
 
-.text-white {
-  /* Changing design decision: Let's use the App's primary color for text instead of background button */
+.text-primary {
   color: #F1795C; 
 }
-
-/* If we want filled button style, un-comment below and adjust template class */
-/*
-.btn-confirm-filled {
-    background-color: #F1795C;
-}
-.text-white-filled {
-    color: #FFFFFF;
-}
-*/
 </style>

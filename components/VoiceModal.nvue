@@ -1,40 +1,40 @@
 <template>
   <view class="modal-root" :style="{ visibility: show ? 'visible' : 'hidden', opacity: show ? 1 : 0 }">
     <!-- Overlay -->
-    <view class="modal-overlay" @click="closeModal"></view>
+    <view class="modal-overlay" @tap="closeModal"></view>
 
-    <!-- Voice Modal Content -->
-    <view class="voice-modal" :style="{ bottom: keyboardHeight + 'px' }">
+    <!-- Modal Content -->
+    <view 
+      class="voice-modal" 
+      :class="[show ? 'modal-up' : '']" 
+      :style="{ 
+        bottom: keyboardHeight + 'px',
+        transitionDuration: animDuration + 'ms'
+      }"
+    >
       <view class="modal-header">
-        <text class="modal-title">语音输入</text>
-        <view class="close-btn" @click="closeModal">
-          <image class="icon-close" src="/static/close-icon.png" mode="aspectFit"></image>
+        <view class="btn-box" @tap="closeModal">
+          <text class="picker-btn picker-cancel">取消</text>
+        </view>
+        <text class="modal-title">新建任务</text>
+        <view class="btn-box" @tap="createNewTask">
+          <text class="picker-btn picker-confirm">确定</text>
         </view>
       </view>
       
       <view class="modal-body">
-        <text class="modal-label">手动输入 / 点击麦克风开始录音</text>
+        <text class="modal-label">✍️ 今天准备做什么呢？</text>
         <view class="input-area">
           <textarea 
             v-if="showInput"
-            ref="textarea"
             class="input-field" 
             v-model="taskText" 
             :focus="inputFocus"
             :adjust-position="false"
-            placeholder="例如：今天下午3点开会"
-            placeholder-style="color: #99A1AF; font-size: 28rpx;"
+            :show-confirm-bar="false"
+            placeholder="请输入任务内容..."
+            placeholder-style="color:#99A1AF;font-size:30rpx"
           ></textarea>
-        </view>
-      </view>
-      
-      <view class="modal-footer">
-        <view class="keyboard-btn bg-orange" @click="focusInput">
-           <image class="icon-keyboard" src="/static/keyboard-icon.png" mode="aspectFit"></image>
-        </view>
-        <view class="create-btn bg-green" @click="createNewTask">
-           <image class="icon-mic" src="/static/mic-icon-white.png" mode="aspectFit"></image>
-           <text class="create-btn-text">创建任务</text>
         </view>
       </view>
     </view>
@@ -42,6 +42,8 @@
 </template>
 
 <script>
+import { MODAL_ANIMATION_DURATION } from '@/utils/config.js';
+
 export default {
   props: {
     show: {
@@ -54,7 +56,8 @@ export default {
       taskText: '',
       inputFocus: false,
       keyboardHeight: 0,
-      showInput: false
+      showInput: false,
+      animDuration: MODAL_ANIMATION_DURATION
     };
   },
   created() {
@@ -62,35 +65,25 @@ export default {
       this.keyboardHeight = res.height;
     });
   },
-  // Vue 3 lifecycle
-  beforeUnmount() {
-    // uni.offKeyboardHeightChange is not always reliable or necessary as page closes, 
-    // but good practice if available, or just let it be. 
-    // UniApp docs say uni.offKeyboardHeightChange(callback). 
-    // Since we use arrow function, we can't remove easily unless we save ref.
-    // For now, simple usage is fine.
-  },
   watch: {
     show(newVal) {
       if (newVal) {
-        // Reset input to force re-render
+        // 回退到初始的逻辑：通过 showInput 强制重绘并延迟触发 focus
+        this.taskText = '';
         this.showInput = false;
         this.inputFocus = false;
         
-        // Delay to allow visibility transition if any (though we use style visibility)
-        // and to let v-if=false take effect
         setTimeout(() => {
             this.showInput = true;
             this.$nextTick(() => {
                 this.inputFocus = true;
-                // Force keyboard a bit later to ensure input is ready
+                // #ifdef APP-PLUS
                 setTimeout(() => {
-                    // #ifdef APP-PLUS
-                    if (plus.key && typeof plus.key.showSoftInput === 'function') {
+                    if (this.show && plus.key && typeof plus.key.showSoftInput === 'function') {
                         plus.key.showSoftInput();
                     }
-                    // #endif
                 }, 100);
+                // #endif
             });
         }, 100);
       } else {
@@ -105,22 +98,19 @@ export default {
       this.$emit('close');
     },
     createNewTask() {
-      if (!this.taskText.trim()) return;
+      if (!this.taskText.trim()) {
+          uni.showToast({ title: '请输入任务内容', icon: 'none' });
+          return;
+      }
       this.$emit('create-task', this.taskText);
       this.taskText = '';
       this.closeModal();
-    },
-    focusInput() {
-      this.inputFocus = false;
-      this.$nextTick(() => {
-        this.inputFocus = true;
-      });
     }
   }
 };
 </script>
 
-<style>
+<style scoped>
 .modal-root {
   position: fixed;
   top: 0;
@@ -136,7 +126,7 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.2);
+  background-color: rgba(0, 0, 0, 0.4);
 }
 
 .voice-modal {
@@ -144,120 +134,79 @@ export default {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 706rpx;
+  height: 580rpx;
   background-color: #FFFFFF;
-  border-top-left-radius: 32rpx;
-  border-top-right-radius: 32rpx;
-  border-top-width: 2rpx;
-  border-top-color: #E5E7EB;
+  border-top-left-radius: 40rpx;
+  border-top-right-radius: 40rpx;
+  transform: translateY(580rpx);
+  transition-property: transform;
+  transition-timing-function: ease-out;
+}
+
+.modal-up {
+  transform: translateY(0);
 }
 
 .modal-header {
-  height: 106rpx;
+  height: 110rpx;
   flex-direction: row;
   justify-content: space-between;
   align-items: center;
-  padding-left: 24rpx;
-  padding-right: 24rpx;
-  border-bottom-width: 2rpx;
+  padding-left: 30rpx;
+  padding-right: 30rpx;
+  border-bottom-width: 1rpx;
   border-bottom-color: #F3F4F6;
-  background-color: #F9FAFB;
-  border-top-left-radius: 32rpx;
-  border-top-right-radius: 32rpx;
+}
+
+.btn-box {
+  padding: 20rpx;
+}
+
+.picker-btn {
+  font-size: 32rpx;
+}
+
+.picker-cancel {
+  color: #6A7282;
+}
+
+.picker-confirm {
+  color: #F1795C;
+  font-weight: bold;
 }
 
 .modal-title {
-  font-size: 32rpx;
+  font-size: 34rpx;
   font-weight: bold;
   color: #101828;
 }
 
-.close-btn {
-  width: 56rpx;
-  height: 56rpx;
-  justify-content: center;
-  align-items: center;
-}
-
-.icon-close {
-  width: 32rpx;
-  height: 32rpx;
-}
-
 .modal-body {
-  padding: 24rpx;
-  height: 444rpx;
+  padding-top: 40rpx;
+  padding-left: 40rpx;
+  padding-right: 40rpx;
+  padding-bottom: 20rpx;
+  flex: 1;
 }
 
 .modal-label {
-  font-size: 24rpx;
-  color: #364153;
-  margin-bottom: 12rpx;
-  text-align: center;
+  font-size: 30rpx;
+  color: #101828;
+  margin-bottom: 24rpx;
+  font-weight: bold;
 }
 
 .input-area {
-  background-color: #F8F9FA;
-  border-radius: 20rpx;
+  background-color: #F5F7FA;
+  border-radius: 24rpx;
   padding: 24rpx;
-  height: 352rpx;
+  height: 280rpx;
 }
 
 .input-field {
   flex: 1;
-  font-size: 28rpx;
+  font-size: 30rpx;
   color: #101828;
-}
-
-.input-placeholder {
-  font-size: 28rpx;
-  color: #99A1AF;
-}
-
-.modal-footer {
-  height: 154rpx;
-  background-color: #F9FAFB;
-  border-top-width: 2rpx;
-  border-top-color: #F3F4F6;
-  flex-direction: row;
-  justify-content: center;
-  align-items: center;
-}
-
-.bg-orange { background-color: #F1795C; }
-.bg-green { background-color: #6BCF7F; }
-
-.keyboard-btn {
-  width: 96rpx;
-  height: 96rpx;
-  border-radius: 28rpx;
-  justify-content: center;
-  align-items: center;
-  margin-right: 20rpx;
-}
-
-.icon-keyboard {
-  width: 40rpx;
-  height: 40rpx;
-}
-
-.create-btn {
-  width: 222rpx;
-  height: 96rpx;
-  border-radius: 28rpx;
-  flex-direction: row;
-  align-items: center;
-  padding-left: 28rpx;
-}
-
-.icon-mic {
-  width: 32rpx;
-  height: 32rpx;
-  margin-right: 16rpx;
-}
-
-.create-btn-text {
-  color: #FFFFFF;
-  font-size: 28rpx;
+  height: 232rpx;
 }
 </style>

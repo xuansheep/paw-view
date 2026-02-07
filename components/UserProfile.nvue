@@ -1,0 +1,170 @@
+<template>
+  <scroll-view scroll-y="true" class="scroll-container">
+    <view class="page-content">
+      <!-- Profile Header -->
+      <view class="profile-header">
+        <text class="page-title">个人中心</text>
+        <view class="user-card">
+          <view class="user-left">
+              <view class="avatar-container">
+                 <image class="avatar" :src="userInfo.avatar" mode="aspectFill"></image>
+              </view>
+              <view class="user-info">
+                <text class="user-name">{{ userInfo.name }}</text>
+                <text class="user-days">{{ stats.daysUsed || '已使用 1 天' }}</text>
+              </view>
+          </view>
+                                          <view class="settings-btn" @click="goToSettings">
+                                               <text class="iconfont settings-icon">&#xe72a;</text>
+                                          </view>        </view>
+      </view>
+
+      <!-- Stats Grid -->
+      <view class="stats-section">
+        <view class="stats-row">
+          <view class="stats-card">
+            <view class="stats-header">
+              <view class="icon-box bg-blue">
+                 <image class="icon-stat" src="/static/profile-tasks.png" mode="aspectFit"></image>
+              </view>
+              <text class="stats-label">总任务</text>
+            </view>
+            <text class="stats-value">{{ stats.total || 0 }}</text>
+          </view>
+          <view class="stats-card">
+            <view class="stats-header">
+              <view class="icon-box bg-green">
+                 <image class="icon-stat" src="/static/profile-rate.png" mode="aspectFit"></image>
+              </view>
+              <text class="stats-label">完成率</text>
+            </view>
+            <text class="stats-value">{{ stats.rate || '0%' }}</text>
+          </view>
+        </view>
+        <view class="stats-row">
+          <view class="stats-card">
+            <view class="stats-header">
+              <view class="icon-box bg-yellow">
+                 <image class="icon-stat" src="/static/profile-weekly.png" mode="aspectFit"></image>
+              </view>
+              <text class="stats-label">本周完成</text>
+            </view>
+            <text class="stats-value">{{ stats.weekly || 0 }}</text>
+          </view>
+          <view class="stats-card">
+            <view class="stats-header">
+              <view class="icon-box bg-orange">
+                 <image class="icon-stat" src="/static/profile-streak.png" mode="aspectFit"></image>
+              </view>
+              <text class="stats-label">连续打卡</text>
+            </view>
+            <text class="stats-value">{{ stats.streak || '0天' }}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- Calendar Component -->
+      <calendar :activity-dates="activityDates"></calendar>
+    </view>
+  </scroll-view>
+</template>
+
+<script>
+import Calendar from '@/components/Calendar.nvue';
+import db from '@/utils/db.js';
+
+// #ifdef APP-NVUE
+const dom = uni.requireNativePlugin('dom');
+// #endif
+
+export default {
+  components: { Calendar },
+  props: {
+    active: {
+      type: Boolean,
+      default: false
+    }
+  },
+  data() {
+    return {
+      activityDates: [],
+      stats: {},
+      userInfo: {
+          name: '爪印用户',
+          avatar: '/static/avatar.png'
+      }
+    };
+  },
+  beforeCreate() {
+    // #ifdef APP-NVUE
+    dom.addRule('fontFace', {
+        'fontFamily': 'iconfont',
+        'src': "url('/static/fonts/iconfont.ttf')"
+    });
+    // #endif
+  },
+  watch: {
+    active(val) {
+      if (val) {
+        this.loadStats();
+        this.loadUserInfo();
+      }
+    }
+  },
+  mounted() {
+    this.loadStats();
+    this.loadUserInfo();
+  },
+  methods: {
+    loadUserInfo() {
+        const u = uni.getStorageSync('user_info');
+        if (u) {
+            this.userInfo.name = u.name || '爪印用户';
+            this.userInfo.avatar = u.avatar || '/static/avatar.png';
+        } else {
+             this.userInfo.name = '爪印用户';
+             this.userInfo.avatar = '/static/avatar.png';
+        }
+    },
+    goToSettings() {
+        uni.navigateTo({
+            url: '/pages/settings/settings'
+        });
+    },
+    async loadStats() {
+        const statsData = await db.getProfileStats();
+        this.stats = statsData;
+        this.activityDates = statsData.activityDates || [];
+    }
+  }
+}
+</script>
+
+<style scoped>
+.iconfont { font-family: iconfont; }
+.scroll-container { flex: 1; }
+.page-content { padding-left: 32rpx; padding-right: 32rpx; padding-top: 24rpx; padding-bottom: 160rpx; }
+.profile-header { margin-bottom: 16rpx; }
+.page-title { font-size: 42rpx; font-weight: bold; color: #101828; margin-bottom: 16rpx; }
+.user-card { height: 130rpx; background-color: #FFFFFF; border-radius: 32rpx; padding: 22rpx; flex-direction: row; align-items: center; justify-content: space-between; }
+.user-left { flex-direction: row; align-items: center; }
+.avatar-container { width: 88rpx; height: 88rpx; border-radius: 44rpx; overflow: hidden; margin-right: 22rpx; }
+.avatar { width: 88rpx; height: 88rpx; border-radius: 44rpx; }
+.user-info { justify-content: center; }
+.user-name { font-size: 30rpx; font-weight: bold; color: #101828; margin-bottom: 3rpx; }
+.user-days { font-size: 22rpx; color: #6A7282; }
+.settings-btn { width: 64rpx; height: 64rpx; justify-content: center; align-items: center; }
+.settings-icon { font-size: 36rpx; color: #6A7282; }
+.stats-section { margin-bottom: 16rpx; }
+.stats-row { flex-direction: row; justify-content: space-between; margin-bottom: 12rpx; }
+.stats-card { width: 334rpx; height: 138rpx; background-color: #FFFFFF; border-radius: 28rpx; padding: 18rpx; }
+.stats-header { flex-direction: row; align-items: center; margin-bottom: 10rpx; }
+.icon-box { width: 44rpx; height: 44rpx; border-radius: 18rpx; justify-content: center; align-items: center; margin-right: 12rpx; }
+.bg-blue { background-color: #4FC3F7; }
+.bg-green { background-color: #6BCF7F; }
+.bg-yellow { background-color: #FFD93D; }
+.bg-orange { background-color: #F1795C; }
+.icon-stat { width: 22rpx; height: 22rpx; }
+.stats-label { font-size: 22rpx; color: #6A7282; }
+.stats-value { font-size: 34rpx; font-weight: bold; color: #101828; }
+</style>
